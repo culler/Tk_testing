@@ -38,7 +38,7 @@ jobs:
         working-directory: tcl/macosx
       - name: Build
         run: |
-          make all install || {
+          make -C macosx all install || {
             echo "::error::Failure during Build"
             exit 1
           }
