@@ -73,9 +73,9 @@ jobs:
         with:
           path: tk
       - name: Check for Tk
-          run: |
-              pwd
-              ls -l
+        run: |
+            pwd
+            ls -l
       - name: Check out Tcl 9.1
         uses: actions/checkout@v5
         with:
