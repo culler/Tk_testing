@@ -14,6 +14,7 @@ jobs:
       run:
         shell: bash
     steps:
+        uses: actions/checkout@v5
       - name: Check out Tcl 9.1
         uses: actions/checkout@v5
         with:
@@ -21,7 +22,6 @@ jobs:
           ref: main
           path: tcl
       - name: Prepare checked out repositories
-        working-directory: .
         run: |
           touch tk/generic/tkStubInit.c
           mkdir build
@@ -119,9 +119,9 @@ jobs:
         env:
           CFGOPT: --enable-symbols=${{ matrix.symbols }} ${{matrix.options }}
       - name: Build
-        working-directory: tk/unix
+        working-directory: tk/tcl
         run: |
-          make || {
+          make tk || {
             echo "::error::Failure during Build"
             exit 1
           }
