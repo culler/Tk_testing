@@ -16,7 +16,7 @@ jobs:
 #        working-directory: tk/macosx
     steps:
       - name: Debug
-        run:
+        run: |
            pwd
            ls -l
       - name: Check out Tcl 9.1
