@@ -42,6 +42,7 @@ jobs:
           }
       - name: Run Tests
         run: |
+          working-directory: tk/macosx
           make TK_NO_STDERR=1 test | tee out.txt
           nmatches=$( grep -c "Failed	0" out.txt )
           if [ $nmatches -lt 4 ]
@@ -109,7 +110,7 @@ jobs:
         env:
           CFGOPT: --enable-symbols=${{ matrix.symbols }}
       - name: Configure (symbols=${{ matrix.symbols }} ${{matrix.options }})
-        working-directory: tcl/unix
+        working-directory: tk/unix
         run: |
           ./configure $CFGOPT --disable-zipfs "--prefix=$HOME/install dir" --disable-xft || {
             cat config.log
@@ -119,9 +120,9 @@ jobs:
         env:
           CFGOPT: --enable-symbols=${{ matrix.symbols }} ${{matrix.options }}
       - name: Build
-        working-directory: tk/tcl
+        working-directory: tk/unix
         run: |
-          make tk || {
+          make || {
             echo "::error::Failure during Build"
             exit 1
           }
