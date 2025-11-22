@@ -14,8 +14,6 @@
 *.so
 .fslckout
 Makefile
-Tk-Info.plist
-Wish-Info.plist
 Credits.html
 autom4te.cache
 config.cache
