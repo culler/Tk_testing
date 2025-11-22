@@ -72,6 +72,10 @@ jobs:
         uses: actions/checkout@v5
         with:
           path: tk
+      - name: Check for Tk
+          run: |
+              pwd
+              ls -l
       - name: Check out Tcl 9.1
         uses: actions/checkout@v5
         with:
@@ -82,8 +86,6 @@ jobs:
         env:
           SET_DISPLAY: ${{ contains(matrix.options, '--disable-aqua') }}
         run: |
-          pwd
-          ls -l
           touch tkStubInit.c
           mkdir "$HOME/install dir"
           echo "USE_XVFB=$SET_DISPLAY" >> $GITHUB_ENV
