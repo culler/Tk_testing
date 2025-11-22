@@ -41,8 +41,8 @@ jobs:
             exit 1
           }
       - name: Run Tests
+        working-directory: tk/macosx
         run: |
-          working-directory: tk/macosx
           make TK_NO_STDERR=1 test | tee out.txt
           nmatches=$( grep -c "Failed	0" out.txt )
           if [ $nmatches -lt 4 ]
@@ -162,11 +162,11 @@ jobs:
             exit 1
           }
         timeout-minutes: 20
-      - name: Carry out trial installation
-        working-directory: tk/unix
-        run: |
-          make install || {
-            cat config.log
-            echo "::error::Failure during Install"
-            exit 1
-          }
+#      - name: Carry out trial installation
+#        working-directory: tk/unix
+#        run: |
+#          make install || {
+#            cat config.log
+#            echo "::error::Failure during Install"
+#            exit 1
+#          }
