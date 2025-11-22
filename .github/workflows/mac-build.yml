@@ -82,6 +82,8 @@ jobs:
         env:
           SET_DISPLAY: ${{ contains(matrix.options, '--disable-aqua') }}
         run: |
+          pwd
+          ls -l
           touch tkStubInit.c
           mkdir "$HOME/install dir"
           echo "USE_XVFB=$SET_DISPLAY" >> $GITHUB_ENV
