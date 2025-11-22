@@ -15,7 +15,6 @@ jobs:
         shell: bash
         working-directory: tk/macosx
     steps:
-      - uses: actions/checkout@v4
       - name: Check out Tcl 9.1
         uses: actions/checkout@v5
         with:
@@ -51,7 +50,6 @@ jobs:
             echo "::error::Failure during Test"
             exit 1
           fi
-        working-directory: tk/macosx
         timeout-minutes: 30
   prefix:
     runs-on: macos-26
@@ -66,12 +64,9 @@ jobs:
     defaults:
       run:
         shell: bash
-        working-directory: tk/unix
     steps:
       - name: Checkout Tk
         uses: actions/checkout@v5
-        with:
-          path: tk
       - name: Check for Tk
         run: |
             pwd
@@ -91,12 +86,13 @@ jobs:
           echo "USE_XVFB=$SET_DISPLAY" >> $GITHUB_ENV
         working-directory: tk/generic
       - name: Add X11 (if required)
+        working-directory: .
         if: ${{ env.USE_XVFB == 'true' }}
         run: |
           brew install --cask xquartz
           sudo /opt/X11/libexec/privileged_startx || true
-        working-directory: .
       - name: Build Tcl
+        working-directory: tcl/unix
         run: |
           ./configure $CFGOPT --disable-zipfs "--prefix=$HOME/install dir" || {
             cat config.log
@@ -111,10 +107,10 @@ jobs:
             echo "::error::Failure during Tcl Install"
             exit 1
           }
-        working-directory: tcl/unix
         env:
           CFGOPT: --enable-symbols=${{ matrix.symbols }}
       - name: Configure (symbols=${{ matrix.symbols }} ${{matrix.options }})
+        working-directory: tcl/unix
         run: |
           ./configure $CFGOPT --disable-zipfs "--prefix=$HOME/install dir" --disable-xft || {
             cat config.log
@@ -124,12 +120,14 @@ jobs:
         env:
           CFGOPT: --enable-symbols=${{ matrix.symbols }} ${{matrix.options }}
       - name: Build
+        working-directory: tcl/unix
         run: |
           make all tktest || {
             echo "::error::Failure during Build"
             exit 1
           }
       - name: Run Tests
+        working-directory: tk/unix
         run: |
           if [ $USE_XVFB == true ]; then
             function runXvfb {
@@ -165,6 +163,7 @@ jobs:
           }
         timeout-minutes: 20
       - name: Carry out trial installation
+        working-directory: tk/unix
         run: |
           make install || {
             cat config.log
