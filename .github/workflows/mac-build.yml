@@ -17,8 +17,7 @@ jobs:
     steps:
       - name: Debug
         run: |
-           pwd
-           ls -l
+           ls -l ; pwd
       - name: Check out Tcl 9.1
         uses: actions/checkout@v5
         with:
