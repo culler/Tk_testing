@@ -37,7 +37,7 @@ jobs:
         run: |
           pwd
           ls -l
-          make all install || {
+          make || {
             echo "::error::Failure during Build"
             exit 1
           }
