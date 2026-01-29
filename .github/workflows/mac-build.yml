@@ -18,12 +18,12 @@ jobs:
         shell: bash
         working-directory: tk/macosx
     steps:
-      - name: Check out Tcl 9.1
+      - name: Checkout
         uses: actions/checkout@v6
-        with:
-          repository: tcltk/tcl
-          ref: main
-          path: tcl
+      - name: Fetch Tcl
+        run: |
+	  https://core.tcl-lang.org/tcl/tarball/main/tcl.tar.gz
+	  tar xfz tcl.tar.gz
       - name: Prepare checked out repositories
         run: |
           touch tk/generic/tkStubInit.c
