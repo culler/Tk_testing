@@ -18,10 +18,6 @@ jobs:
         shell: bash
         working-directory: tk/macosx
     steps:
-      - name: Checkout Tk
-        uses: actions/checkout@v6
-        with:
-          path: tk
       - name: Check out Tcl 9.1
         uses: actions/checkout@v6
         with:
