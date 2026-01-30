@@ -29,7 +29,7 @@ resetWindows
 
 testConstraint testprintf [llength [info command testprintf]]
 
-testConstraint notMacCI [expr {notAqua || ![info exists ::env(CI)]}]
+testConstraint notMacCI [expr {$notAqua || ![info exists ::env(CI)]}]
 
 #
 # TESTS

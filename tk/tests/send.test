@@ -43,7 +43,7 @@ testutils import child
 #
 
 testConstraint xhost [llength [auto_execok xhost]]
-testConstraint notMacCI [expr {notAqua || ![info exists ::env(CI)]}]
+testConstraint notMacCI [expr {$notAqua || ![info exists ::env(CI)]}]
 
 #
 # COMMON TEST SETUP

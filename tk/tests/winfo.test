@@ -34,7 +34,7 @@ testutils import colors
 # LOCAL TEST CONSTRAINTS
 #
 
-testConstraint notMacCI [expr {notAqua || ![info exists ::env(CI)]}]
+testConstraint notMacCI [expr {$notAqua || ![info exists ::env(CI)]}]
 
 #
 # TESTS
