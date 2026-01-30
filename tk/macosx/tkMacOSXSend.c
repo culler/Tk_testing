@@ -805,7 +805,6 @@ Tk_SetAppName(
 	Tcl_DStringFree(&dString);
     }
     return riPtr->name;
-#endif
 }
 
 
