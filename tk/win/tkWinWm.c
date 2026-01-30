@@ -18,6 +18,7 @@
 #include <wtypes.h>
 #include <shobjidl.h>
 #include <shlguid.h>
+#include <shellapi.h>
 #include "tkWinIco.h"
 /*
  * These next two defines are only valid on Win2K/XP+.
@@ -3619,11 +3620,7 @@ WmForgetCmd(
 {
     Tk_Window frameWin = (Tk_Window) winPtr;
 
-    /*
-     * Tk ticket c77b426d: avoid panic on usage after wm forget
-     */
-
-    if (Tk_IsTopLevel(frameWin) && Tk_IsManageable(frameWin)) {
+    if (Tk_IsTopLevel(frameWin)) {
 	Tk_UnmapWindow(frameWin);
 	winPtr->flags &= ~(TK_TOP_HIERARCHY|TK_TOP_LEVEL|TK_HAS_WRAPPER|TK_WIN_MANAGED);
 	Tk_MakeWindowExist((Tk_Window)winPtr->parentPtr);

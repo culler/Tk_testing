@@ -2569,11 +2569,7 @@ WmForgetCmd(
 {
     Tk_Window frameWin = (Tk_Window)winPtr;
 
-    /*
-     * Tk ticket c77b426d: avoid panic on usage after wm forget
-     */
-
-    if (Tk_IsTopLevel(frameWin) && Tk_IsManageable(frameWin)) {
+    if (Tk_IsTopLevel(frameWin)) {
 	MacDrawable *macWin;
 
 	Tk_MakeWindowExist(frameWin);
