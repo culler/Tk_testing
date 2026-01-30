@@ -50,5 +50,6 @@ jobs:
             echo "::error::Failure during Test"
             exit 1
           fi
+          working-directory: tk
         timeout-minutes: 30
 
