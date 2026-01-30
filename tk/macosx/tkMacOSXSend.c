@@ -711,6 +711,17 @@ Tk_SetAppName(
 				 * interpreter in later "send" commands. Must
 				 * be globally unique. */
 {
+    /*
+     * The App registry cannot be used on CI runners because macOS will post
+     * a dialog asking for permission to write files.  This causes tktest to
+     * hang, since it is not possible to dismiss the dialog.  We check the
+     * environment variable CI to determine whether we are being run on a CI
+     * runner.
+     */
+
+    if (getenv("CI")) {
+	return "Wish";
+    }
     RegisteredInterp *riPtr;
     TkWindow *winPtr = (TkWindow *) tkwin;
     NameRegistry *regPtr;
