@@ -43,7 +43,7 @@ typedef struct RegisteredInterp {
  * registered the interpreter and a currently unused void *.
  */
 
-static char *appNameRegistryPath;
+static char *appNameRegistryPath = "/private/tmp/tkappnames";
 
 /*
  * Information that we record about an application.
@@ -462,7 +462,7 @@ SendInit()
     /*
      * Intialize the path used for the appname registry.
      */
-
+#if 0
     NSArray *searchPaths = NSSearchPathForDirectoriesInDomains(
 		 NSCachesDirectory, NSUserDomainMask, YES);
     NSString *cachesDirectory = [searchPaths objectAtIndex:0];
@@ -471,6 +471,7 @@ SendInit()
     size_t length = 1 + strlen(RegistryPath.UTF8String);
     appNameRegistryPath = ckalloc(length);
     strlcpy(appNameRegistryPath, RegistryPath.UTF8String, length);
+#endif
     return TCL_OK;
 }
 
@@ -710,8 +711,6 @@ Tk_SetAppName(
 				 * interpreter in later "send" commands. Must
 				 * be globally unique. */
 {
-    return "Wish";
-#if 0	
     RegisteredInterp *riPtr;
     TkWindow *winPtr = (TkWindow *) tkwin;
     NameRegistry *regPtr;
