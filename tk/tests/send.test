@@ -696,7 +696,7 @@ test send-15.1 {UpdateCommWindow procedure} {secureserver testsend} {
 
 # This passes on real macOS systems but fails on macOS CI runners because
 # AppleScript is not enabled on the runner.
-test send-16.1 {set variable - app in child interpreter} unix notMacCI {
+test send-16.1 {set variable - app in child interpreter} {unix notMacCI} {
     set a "a"
     childTkInterp t_s_1 -class Test
     set app [t_s_1 eval {tk appname}]
@@ -711,7 +711,7 @@ test send-16.1 {set variable - app in child interpreter} unix notMacCI {
 
 # This passes on real macOS systems but fails on macOS CI runners because
 # AppleScript is not enabled on the runner.
-test send-16.2 {recursive send - app in child process} unix notMacCI {
+test send-16.2 {recursive send - app in child process} {unix notMacCI} {
     childTkProcess create
     set a no
     set this [tk appname]
@@ -723,7 +723,7 @@ test send-16.2 {recursive send - app in child process} unix notMacCI {
 
 # This passes on real macOS systems but fails on macOS CI runners because
 # AppleScript is not enabled on the runner.
-test send-17.1 {set variable - app in child process} unix notMacCI {
+test send-17.1 {set variable - app in child process} {unix notMacCI} {
     set a "a"
     childTkProcess create
     set app [childTkProcess eval {tk appname}]
