@@ -32,17 +32,18 @@ jobs:
         working-directory: .
       - name: Build Tcl
         run: |
-          make all
-        working-directory: tcl/macosx
-      - name: Build
+          make -C macosx
+        working-directory: tcl
+      - name: Build Tk
         run: |
-          make all install || {
+          make -C macosx || {
             echo "::error::Failure during Build"
             exit 1
           }
+        working-directory: tk
       - name: Run Tests
         run: |
-          make TK_NO_STDERR=1 test | tee out.txt
+          make -C macosx TK_NO_STDERR=1 test | tee out.txt
           nmatches=$( grep -c "Failed	0" out.txt )
           if [ $nmatches -lt 4 ]
           then
