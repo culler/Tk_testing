@@ -41,9 +41,10 @@ typedef struct RegisteredInterp {
  * and the value assigned to a key is a Tcl list containing two Tcl_IntObj
  * items whose integer values are, respectively, the pid of the process which
  * registered the interpreter and a currently unused void *.
+ *
  */
 
-static char *appNameRegistryPath;
+static char *appNameRegistryPath = "/tmp/TkAppnames";
 
 /*
  * Information that we record about an application.
@@ -359,6 +360,10 @@ saveAppNameRegistry(
     Tcl_Obj *dict,
     const char *path)
 {
+    if (path == NULL) {
+	/* We are running in a CI runner */
+	return;
+    }
     Tcl_Size length, bytesWritten;
     /* Open the file ab+ to avoid truncating it before flocking it. */
     FILE *appNameFile = fopen(path, "ab+");
@@ -392,6 +397,10 @@ loadAppNameRegistry(
     size_t length, bytesRead;
     char *bytes = NULL;
     Tcl_Obj *result;
+    if (path == NULL) {
+	/* We are running in a CI runner. */
+	return "";
+    }
 
     FILE *appNameFile = fopen(path, "ab+");
     if (appNameFile == NULL) {
@@ -459,6 +468,10 @@ loadAppNameRegistry(
 static int
 SendInit()
 {
+    if (getenv("CI")) {
+	return TCL_OK;
+    }
+
     /*
      * Intialize the path used for the appname registry.
      */
@@ -690,7 +703,7 @@ RegAddName(
  *	an application then a name of the form "name #2" will be chosen, with
  *	a high enough number to make the name unique.
  *      
- *      A crucial exception to the behavior described above arises when Tk is
+ *      An crucial exception to the behavior described above arises when Tk is
  *      being run on a Continuous Integration runner.  The file-based App
  *      registry which is used to ensure uniqueness cannot be used on CI
  *      runners because macOS will post a system privacy dialog requesing
@@ -702,12 +715,12 @@ RegAddName(
  *      other interpreteters.
  *
  * Side effects:
- *	In normal usage (i.e. when interaction is possible) the app name is
- *	saved in a registry file, thereby allowing the "send" command to be
- *	used later to invoke commands in the application. In addition, the
- *	"send" command is created in the application's interpreter. The
- *	registration will be removed automatically if the interpreter is
- *	deleted or the "send" command is removed.
+ *	In normal usage (i.e. being run interactively) the app name is saved
+ *	in a registry file, thereby allowing the "send" command to be used
+ *	later to invoke commands in the application. In addition, the "send"
+ *	command is created in the application's interpreter. The registration
+ *	will be removed automatically if the interpreter is deleted or the
+ *	"send" command is removed.
  *
  *----------------------------------------------------------------------
  */
