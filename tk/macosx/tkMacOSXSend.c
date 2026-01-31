@@ -43,7 +43,7 @@ typedef struct RegisteredInterp {
  * registered the interpreter and a currently unused void *.
  */
 
-static char *appNameRegistryPath = "/private/tmp/tkappnames";
+static char *appNameRegistryPath;
 
 /*
  * Information that we record about an application.
@@ -462,7 +462,6 @@ SendInit()
     /*
      * Intialize the path used for the appname registry.
      */
-#if 0
     NSArray *searchPaths = NSSearchPathForDirectoriesInDomains(
 		 NSCachesDirectory, NSUserDomainMask, YES);
     NSString *cachesDirectory = [searchPaths objectAtIndex:0];
@@ -471,7 +470,6 @@ SendInit()
     size_t length = 1 + strlen(RegistryPath.UTF8String);
     appNameRegistryPath = ckalloc(length);
     strlcpy(appNameRegistryPath, RegistryPath.UTF8String, length);
-#endif
     return TCL_OK;
 }
 
@@ -692,7 +690,7 @@ RegAddName(
  *	an application then a name of the form "name #2" will be chosen, with
  *	a high enough number to make the name unique.
  *      
- *      An crucial exception to the behavior described above arises when Tk is
+ *      A crucial exception to the behavior described above arises when Tk is
  *      being run on a Continuous Integration runner.  The file-based App
  *      registry which is used to ensure uniqueness cannot be used on CI
  *      runners because macOS will post a system privacy dialog requesing
@@ -704,12 +702,12 @@ RegAddName(
  *      other interpreteters.
  *
  * Side effects:
- *	In normal usage (i.e. being run interactively) the app name is saved
- *	in a registry file, thereby allowing the "send" command to be used
- *	later to invoke commands in the application. In addition, the "send"
- *	command is created in the application's interpreter. The registration
- *	will be removed automatically if the interpreter is deleted or the
- *	"send" command is removed.
+ *	In normal usage (i.e. when interaction is possible) the app name is
+ *	saved in a registry file, thereby allowing the "send" command to be
+ *	used later to invoke commands in the application. In addition, the
+ *	"send" command is created in the application's interpreter. The
+ *	registration will be removed automatically if the interpreter is
+ *	deleted or the "send" command is removed.
  *
  *----------------------------------------------------------------------
  */
