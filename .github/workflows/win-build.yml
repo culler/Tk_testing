@@ -3,9 +3,6 @@ on:
   push:
     branches:
     - "main"
-    - "core-9-0-branch"
-    tags:
-    - "core-**"
 permissions:
   contents: read
 env:
