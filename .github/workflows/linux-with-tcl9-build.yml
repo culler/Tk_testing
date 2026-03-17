@@ -3,6 +3,10 @@ on:
   push:
     branches:
     - "main"
+    - "core-9-0-branch"
+    - "7f67bb4054d6d7d9-menu-recursive-chw"
+    tags:
+    - "core-**"
 permissions:
   contents: read
 defaults:
@@ -13,7 +17,7 @@ env:
   ERROR_ON_FAILURES: 1
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         compiler:
@@ -23,8 +27,6 @@ jobs:
           - ""
           - "CFLAGS=-DTK_NO_DEPRECATED=1"
           - "--disable-shared"
-          - "--disable-xft"
-          - "--disable-xss"
           - "--enable-symbols"
     steps:
       - name: Checkout
@@ -39,7 +41,7 @@ jobs:
           path: tcl
       - name: Setup Environment (compiler=${{ matrix.compiler }})
         run: |
-          sudo apt-get install libxss-dev libxft-dev
+          sudo apt-get install libx11-dev
           mkdir "$HOME/install dir"
           touch tk/doc/man.macros tk/generic/tkStubInit.c
           echo "CFGOPT=$CFGOPT" >> $GITHUB_ENV
@@ -102,14 +104,13 @@ jobs:
             exit 1
           }
   test:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         compiler:
           - "gcc"
         config:
           - ""
-          - "--disable-xft"
           - "--enable-symbols"
     steps:
       - name: Checkout
@@ -124,7 +125,8 @@ jobs:
           path: tcl
       - name: Setup Environment (compiler=${{ matrix.compiler }})
         run: |
-          sudo apt-get install libxss-dev libxft-dev xvfb libicu-dev xfonts-75dpi xfonts-100dpi xfonts-scalable libxfont2 unifont
+          sudo apt-get update
+          sudo apt-get install xvfb libx11-dev libicu-dev xfonts-75dpi xfonts-100dpi xfonts-scalable libxfont2 unifont
           mkdir "$HOME/install dir"
           touch tk/doc/man.macros tk/generic/tkStubInit.c
           echo "CFGOPT=$CFGOPT" >> $GITHUB_ENV
