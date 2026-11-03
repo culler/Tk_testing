@@ -43,6 +43,12 @@ MODULE_SCOPE const TkStubs tkStubs;
 #undef XPutImage
 #define TkUnusedStubEntry 0
 
+#define TkPointToChar_ PointToChar /* Move out of the way */
+static int PointToChar(Tk_TextLayout layout, int x, int y)
+{
+    return (int)Tk_PointToChar(layout, x, y);
+}
+
 #if !defined(MAC_OSX_TK)
 static int
 doNothing(void)
@@ -58,6 +64,19 @@ doNothing(void)
 #   define TkpGetNativeAppBitmap ((Pixmap (*)(Display *, const char *, int *, int *))(void *)doNothing)
 #   define TkAboutDlg ((void (*)(void))(void *)doNothing)
 #endif
+
+#define TkGetUserInactiveTime GetUserInactiveTime
+MODULE_SCOPE long
+TkGetUserInactiveTime(Display *dpy)
+{
+    long long inactive = Tk_GetUserInactiveTime(dpy);
+    if (inactive > LONG_MAX) {
+	inactive = LONG_MAX;
+    } else if (inactive < 0) {
+	inactive = -1;
+    }
+    return (long)inactive;
+}
 
 #ifdef _WIN32
 
@@ -126,7 +145,6 @@ TkpPrintWindowId(
 #	define Tk_GetHWND 0
 #	define Tk_HWNDToWindow 0
 #	define TkAlignImageData 0
-#	define TkpGetMS 0
 #	define TkpGetCapture 0
 #	define TkPointerDeadWindow 0
 #	define TkpSetCapture 0
@@ -313,7 +331,7 @@ static const TkIntStubs tkIntStubs = {
     XRectInRegion, /* 117 */
     XSetRegion, /* 118 */
     XUnionRectWithRegion, /* 119 */
-    0, /* 120 */
+    TkpWindowIsDark, /* 120 */
     TkpCreateNativeBitmap, /* 121 */
     TkpDefineNativeBitmaps, /* 122 */
     0, /* 123 */
@@ -381,6 +399,8 @@ static const TkIntStubs tkIntStubs = {
     0, /* 185 */
     0, /* 186 */
     TkDebugPhotoStringMatchDef, /* 187 */
+    TkFontEmojiPresentation, /* 188 */
+    TkFontEmojiContinuation, /* 189 */
 };
 
 static const TkIntPlatStubs tkIntPlatStubs = {
@@ -390,7 +410,7 @@ static const TkIntPlatStubs tkIntPlatStubs = {
     TkCreateXEventSource, /* 0 */
     TkAboutDlg, /* 1 */
     TkGenerateActivateEvents, /* 2 */
-    TkpGetMS, /* 3 */
+    0, /* 3 */
     TkPointerDeadWindow, /* 4 */
     TkpPrintWindowId, /* 5 */
     TkpScanWindowId, /* 6 */
@@ -440,7 +460,7 @@ static const TkIntPlatStubs tkIntPlatStubs = {
     0, /* 0 */
     TkAboutDlg, /* 1 */
     TkGenerateActivateEvents, /* 2 */
-    TkpGetMS, /* 3 */
+    0, /* 3 */
     TkPointerDeadWindow, /* 4 */
     0, /* 5 */
     TkpScanWindowId, /* 6 */
@@ -552,7 +572,7 @@ static const TkIntXlibStubs tkIntXlibStubs = {
     XCreateGlyphCursor, /* 8 */
     XGContextFromGC, /* 9 */
     XListHosts, /* 10 */
-    XKeycodeToKeysym, /* 11 */
+    0, /* 11 */
     XStringToKeysym, /* 12 */
     XRootWindow, /* 13 */
     XSetErrorHandler, /* 14 */
@@ -892,8 +912,8 @@ const TkStubs tkStubs = {
     Tk_PhotoBlank, /* 147 */
     0, /* 148 */
     Tk_PhotoGetSize, /* 149 */
-    0, /* 150 */
-    Tk_PointToChar, /* 151 */
+    Tk_PointToChar, /* 150 */
+    TkPointToChar_, /* 151 */
     Tk_PostscriptFontName, /* 152 */
     Tk_PreserveColormap, /* 153 */
     Tk_QueueWindowEvent, /* 154 */
@@ -960,7 +980,7 @@ const TkStubs tkStubs = {
     Tk_InitConsoleChannels, /* 215 */
     0, /* 216 */
     Tk_CreateSmoothMethod, /* 217 */
-    0, /* 218 */
+    Tk_GetUserInactiveTime, /* 218 */
     0, /* 219 */
     Tk_GetDash, /* 220 */
     Tk_CreateOutline, /* 221 */
@@ -1011,7 +1031,7 @@ const TkStubs tkStubs = {
     Tk_PhotoPutBlock, /* 266 */
     Tk_PhotoPutZoomedBlock, /* 267 */
     Tk_PhotoSetSize, /* 268 */
-    Tk_GetUserInactiveTime, /* 269 */
+    TkGetUserInactiveTime, /* 269 */
     Tk_ResetUserInactiveTime, /* 270 */
     Tk_Interp, /* 271 */
     0, /* 272 */

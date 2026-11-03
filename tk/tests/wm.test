@@ -39,11 +39,18 @@ resetWindows
 # operation. The raiseDelay procedure idles for a while to give the operation
 # a chance to complete.
 #
-proc raiseDelay {} {
-    after 250;
-    update idletasks
-    update
-}
+if {[tk windowingsystem] eq "aqua"} {
+    proc raiseDelay {} {
+        update idletasks
+	after 200
+    }
+} else {
+    proc raiseDelay {} {
+	after 300
+        update idletasks
+        update
+    }
+ }
 
 proc stdWindow {} {
     destroy .t
@@ -153,7 +160,6 @@ test wm-1.5 {Tk_WmObjCmd procedure, miscellaneous errors} -body {
     destroy .b
 } -result {window ".b" isn't a top-level window}
 
-
 ### wm aspect ###
 test wm-aspect-1.1 {usage} -returnCodes error -body {
     wm aspect
@@ -209,22 +215,22 @@ test wm-attributes-1.1 {usage} -returnCodes error -body {
 } -result {wrong # args: should be "wm option window ?arg ...?"}
 test wm-attributes-1.2.1 {usage} -constraints win -returnCodes error -body {
     wm attributes . _
-} -result {bad attribute "_": must be -alpha, -disabled, -fullscreen, -toolwindow, -topmost, or -transparentcolor}
+} -result {bad attribute "_": must be -alpha, -appearance, -disabled, -fullscreen, -toolwindow, -topmost, or -transparentcolor}
 test wm-attributes-1.2.2 {usage} -constraints win -returnCodes error -body {
     wm attributes . -alpha 1.0 -disabled
-} -result {wrong # args: should be "wm attributes window ?-alpha ?double?? ?-transparentcolor ?color?? ?-disabled ?bool?? ?-fullscreen ?bool?? ?-toolwindow ?bool?? ?-topmost ?bool??"}
+} -result {wrong # args: should be "wm attributes window ?-alpha ?double?? ?-appearance ?light|dark?? ?-transparentcolor ?color?? ?-disabled ?bool?? ?-fullscreen ?bool?? ?-toolwindow ?bool?? ?-topmost ?bool??"}
 test wm-attributes-1.2.3 {usage} -constraints win -returnCodes error -body {
     wm attributes . -to
-} -result {bad attribute "-to": must be -alpha, -disabled, -fullscreen, -toolwindow, -topmost, or -transparentcolor}
+} -result {bad attribute "-to": must be -alpha, -appearance, -disabled, -fullscreen, -toolwindow, -topmost, or -transparentcolor}
 test wm-attributes-1.2.5.1 {usage} -constraints x11 -returnCodes error -body {
     wm attributes . _
 } -result {bad attribute "_": must be -alpha, -fullscreen, -topmost, -type, or -zoomed}
 test wm-attributes-1.2.5.2 {usage} -constraints win32 -returnCodes error -body {
     wm attributes . _
-} -result {bad attribute "_": must be -alpha, -disabled, -fullscreen, -toolwindow, -topmost, or -transparentcolor}
+} -result {bad attribute "_": must be -alpha, -appearance, -disabled, -fullscreen, -toolwindow, -topmost, or -transparentcolor}
 test wm-attributes-1.2.5.3 {usage} -constraints aqua -returnCodes error -body {
     wm attributes . _
-} -result {bad attribute "_": must be -alpha, -appearance, -buttons, -fullscreen, -isdark, -modified, -notify, -titlepath, -topmost, -transparent, -stylemask, -class, -tabbingid, -tabbingmode, or -type}
+} -result {bad attribute "_": must be -alpha, -appearance, -buttons, -fullscreen, -hidden, -modified, -notify, -titlepath, -topmost, -transparent, -stylemask, -class, -tabbingid, -tabbingmode, or -type}
 
 #
 # COMMON TEST CLEANUP
@@ -350,6 +356,18 @@ test wm-attributes-1.3.12 {another attribute, then -fullscreen, then another} -c
     wm attributes .t -fullscreen
 } -cleanup {
     deleteWindows
+} -result 1
+test wm-attributes-1.3.13 "Check winfo isdark" -constraints aquaOrWin32 -setup {
+    catch {destroy .t}
+    update
+} -body {
+    toplevel .t
+    # Without the following update, the command fails.
+    update idletasks
+    wm attributes .t -appearance d
+    winfo isdark .t
+} -cleanup {
+    destroy .t
 } -result 1
 
 test wm-attributes-1.4.0 {setting/unsetting fullscreen does not change the focus} -setup {
@@ -509,6 +527,70 @@ test wm-attributes-1.5.5 {fullscreen stackorder} -setup {
     deleteWindows
 } -result {{. .a .b .c} {. .a .b .c} {. .a .b .c}}
 
+# Test that a window is hidden and revealed by the -hidden attribute
+# and that a window can be reconfigured and drawn while hidden.
+test wm-attributes-1.6.1 {-hidden} \
+    -constraints {aqua testpixel} \
+    -setup {set result [list]} \
+-body {
+    toplevel .a -bg red
+    wm geometry .a 200x200
+    update idletasks
+    after 300;# Allow humans to see the window.
+    # Check that the window is red.
+    lappend result [testpixel .a 100 100]
+    # Hide the red window.
+    wm attributes .a -hidden 1
+    update idletasks
+    # Turn it blue.
+    .a configure -bg blue
+    # Resize it
+    wm geometry .a 250x300
+    # Reveal it.
+    wm attributes .a -hidden 0
+    update idletasks
+    after 300; # Allow humans to see the window.
+    # Check that it is now blue.
+    lappend result [testpixel .a 100 100]
+    # Check that it got resized.
+    lappend result [winfo width .a]
+    lappend result [winfo height .a]
+} \
+-cleanup {
+    deleteWindows
+} \
+-result [list "#ff0000" "#0000ff" 250 300]
+
+# Test that <Enter> and <Leave> are generated when a window
+# is hidden or revealed.
+test wm-attributes-1.6.2 {-hidden} \
+-constraints {aqua testpixel} \
+-setup {set result [list]} \
+-body {
+    toplevel .a
+    wm geometry .a 200x200+100+100
+    #tkwait visibility .a
+    update idletasks
+    after 300; #Allow humans to see the window.
+    # Move the mouse pointer into the window.
+    event generate {} <Motion> -warp 1 -x 200 -y 200
+    update; # Process any <Leave> or <Enter caused by the warp.
+    bind .a <Leave> {lappend result "<Leave> %d %W"}
+    bind .a <Enter> {lappend result "<Enter> %d %W"}
+    # Hide the window - should generate a <Leave> event.
+    wm attributes .a -hidden 1
+    after 500; # Allow humans to see that the window is gone.
+    # Show the window - should generate an <Enter> event.
+    wm attributes .a -hidden 0
+    update; # Process the events.
+    after 300; # Allow humans to see that the window is back.
+    set result
+} \
+-cleanup {
+    deleteWindows
+} \
+-result {{<Leave> NotifyNonlinear .a} {<Enter> NotifyNonlinear .a}}
+
 ### wm client ###
 test wm-client-1.1 {usage} -returnCodes error -body {
     wm client
@@ -630,7 +712,7 @@ test wm-deiconify-1.5 {usage} -constraints win -setup {
     destroy .t.f .embed
 } -result {can't deiconify .embed: the container does not support the request}
 # test embedded window for other platforms
-test wm-deiconify-1.6 {usage} -constraints macOrUnix -setup {
+test wm-deiconify-1.6 {usage} -constraints unix -setup {
     destroy .embed
 } -body {
     frame .t.f -container 1
@@ -748,6 +830,26 @@ test wm-geometry-2.1 {setting values} -body {
 } -cleanup {
     unset result
 } -match glob -result [list 150x150+*+* 0]
+test wm-geometry-2.2 {setting only the size does not move the window - bug 2995339} -setup {
+    destroy .geom
+    toplevel .geom -width 200 -height 150
+    update
+    # Let the window manager place the window.
+    after 500
+    update
+} -body {
+    set x [winfo rootx .geom]
+    set y [winfo rooty .geom]
+    wm geometry .geom 300x200
+    update
+    after 500
+    update
+    list [expr {[winfo rootx .geom] - $x}] [expr {[winfo rooty .geom] - $y}] \
+	    [winfo width .geom] [winfo height .geom]
+} -cleanup {
+    destroy .geom
+    unset -nocomplain x y
+} -result {0 0 300 200}
 
 
 ### wm grid ###
@@ -969,7 +1071,7 @@ test wm-iconify-2.4.1 {Misc errors} -constraints win -setup {
     destroy .t2 .r.f
 } -result {can't iconify ".t2": the container does not support the request}
 # test embedded window for other platforms
-test wm-iconify-2.4.2 {Misc errors} -constraints macOrUnix -setup {
+test wm-iconify-2.4.2 {Misc errors} -constraints unix -setup {
     destroy .t2
 } -body {
     frame .t.f -container 1
@@ -979,7 +1081,7 @@ test wm-iconify-2.4.2 {Misc errors} -constraints macOrUnix -setup {
     destroy .t2 .r.f
 } -result {can't iconify ".t2": it is an embedded window}
 
-test wm-iconify-3.1 {iconify behavior} -constraints {failsOnCILinux failsOnXQuartz} -body {
+test wm-iconify-3.1 {iconify behavior} -constraints withWindowManager -body {
     toplevel .t2
     wm geom .t2 -0+0
     update idletasks
@@ -1157,10 +1259,14 @@ test wm-maxsize-1.6 {usage} -setup {
 } -cleanup {
     destroy .t2
 } -result {300 200}
-test wm-maxsize-1.7 {maxsize must be <= screen size} -setup {
+test wm-maxsize-1.7 {toplevel windows must be <= display screen size\
+	(this test will fail when more than one monitor is used\
+	as windows are then allowed to be larger than a single screen)} -setup {
     destroy .t
 } -body {
     toplevel .t
+    # note, maxsize will be larger the the screen in dual-monitor setup
+    # and Tk has no reliable way to detext this situation:
     lassign [wm maxsize .t] t_width t_height
     set s_width [winfo screenwidth .t]
     set s_height [winfo screenheight .t]
@@ -1601,7 +1707,7 @@ test wm-stackorder-2.6 {stacking order: non-toplevel widgets ignored} -body {
     raiseDelay
     button .t1.b
     pack .t1.b
-    update
+    raiseDelay
     wm stackorder .
 } -cleanup {
     destroy .t1
@@ -1617,7 +1723,7 @@ test wm-stackorder-2.7 {stacking order: no children returns self} -setup {
 #
 deleteWindows
 
-test wm-stackorder-3.1 {unmapped toplevel} -constraints {failsOnCILinux failsOnXQuartz} -body {
+test wm-stackorder-3.1 {unmapped toplevel} -constraints withWindowManager -body {
     toplevel .t1 ; update
     raiseDelay
     toplevel .t2 ; update
@@ -1744,7 +1850,7 @@ test wm-stackorder-5.1 {a menu is not a toplevel} -body {
     destroy .t
 } -result {.t .}
 test wm-stackorder-5.2 {A normal toplevel can't be raised above an \
-    overrideredirect toplevel on unix} -constraints {x11 failsOnCILinux failsOnXQuartz} -body {
+    overrideredirect toplevel on unix} -constraints {x11 withWindowManager} -body {
     toplevel .t
     wm overrideredirect .t 1
     tkwait visibility .t
@@ -1952,7 +2058,7 @@ test wm-transient-3.3 {withdraw/deiconify on the toplevel
 } -result {withdrawn 0 normal 1}
 
 test wm-transient-4.1 {transient toplevel is withdrawn
-	when mapped if toplevel is iconic} -constraints {failsOnCILinux failsOnXQuartz} -body {
+	when mapped if toplevel is iconic} -constraints withWindowManager -body {
     toplevel .top
     wm iconify .top
     update
@@ -1964,7 +2070,7 @@ test wm-transient-4.1 {transient toplevel is withdrawn
     deleteWindows
 } -result {withdrawn 0}
 test wm-transient-4.2 {already mapped transient toplevel
-	is withdrawn if toplevel is iconic} -constraints {failsOnCILinux failsOnXQuartz} -body {
+	is withdrawn if toplevel is iconic} -constraints withWindowManager -body {
     toplevel .top
     raiseDelay
     wm iconify .top
@@ -1978,7 +2084,7 @@ test wm-transient-4.2 {already mapped transient toplevel
     deleteWindows
 } -result {withdrawn 0}
 test wm-transient-4.3 {iconify/deiconify on the toplevel
-	does a withdraw/deiconify on the transient} -constraints {failsOnCILinux failsOnXQuartz} -setup {
+	does a withdraw/deiconify on the transient} -constraints withWindowManager -setup {
     set results [list]
 } -body {
     toplevel .top
@@ -2154,7 +2260,7 @@ test wm-transient-7.5 {Reassign transient, destroy transient} -body {
     deleteWindows
 }
 
-test wm-transient-8.1 {transient to withdrawn window, Bug 1163496} -constraints {failsOnCILinux failsOnXQuartz} -setup {
+test wm-transient-8.1 {transient to withdrawn window, Bug 1163496} -constraints withWindowManager -setup {
     deleteWindows
     set result {}
 } -body {
@@ -2170,6 +2276,21 @@ test wm-transient-8.1 {transient to withdrawn window, Bug 1163496} -constraints 
 } -cleanup {
     deleteWindows
 } -result {0 0 1 1 {.t1 .t2}}
+test wm-transient-8.2 {deiconify transient withdrawn before its container
+	was mapped, Bug 562c3a3da5} -setup {
+    deleteWindows
+} -body {
+    toplevel .t1
+    toplevel .t2
+    wm transient .t2 .t1
+    wm withdraw .t2
+    update
+    wm deiconify .t2
+    update
+    list [wm state .t2] [winfo ismapped .t2]
+} -cleanup {
+    deleteWindows
+} -result {normal 1}
 
 
 ### wm state ###
@@ -2235,7 +2356,7 @@ test wm-state-2.7 {state change before map} -body {
 } -cleanup {
     deleteWindows
 } -result {iconic}
-test wm-state-2.8 {state change after map} -constraints {failsOnCILinux failsOnXQuartz} -body {
+test wm-state-2.8 {state change after map} -constraints withWindowManager -body {
     toplevel .t
     update
     wm state .t iconic
@@ -2243,7 +2364,7 @@ test wm-state-2.8 {state change after map} -constraints {failsOnCILinux failsOnX
 } -cleanup {
     deleteWindows
 } -result {iconic}
-test wm-state-2.9 {state change after map} -constraints {failsOnCILinux failsOnXQuartz} -body {
+test wm-state-2.9 {state change after map} -constraints withWindowManager -body {
     toplevel .t
     update
     wm iconify .t
@@ -2259,6 +2380,22 @@ test wm-state-2.10 {state change before map} -body {
 } -cleanup {
     deleteWindows
 } -result {normal}
+test wm-state-2.10.1 {state change before map, bug [d01ec103c0]} -body {
+    toplevel .t
+    wm withdraw .t
+    wm state .t iconic
+    wm state .t
+} -cleanup {
+    deleteWindows
+} -result {iconic}
+test wm-state-2.10.2 {state change before map, bug [d01ec103c0]} -body {
+    toplevel .t
+    wm withdraw .t
+    wm iconify .t
+    wm state .t
+} -cleanup {
+    deleteWindows
+} -result {iconic}
 test wm-state-2.11 {state change before map} -body {
     toplevel .t
     wm withdraw .t
@@ -2323,6 +2460,19 @@ test wm-state-2.18 {state change after map} -constraints win -body {
     toplevel .t
     update
     wm state .t zoomed
+    wm state .t
+} -cleanup {
+    deleteWindows
+} -result {zoomed}
+test wm-state-2.19 {deiconify keeps a withdrawn window zoomed} -constraints win -body {
+    toplevel .t
+    update
+    wm state .t zoomed
+    update
+    wm withdraw .t
+    update
+    wm deiconify .t
+    update
     wm state .t
 } -cleanup {
     deleteWindows
@@ -2507,6 +2657,26 @@ test wm-manage-1.8 {unmanaging a toplevel} -setup {
 } -cleanup {
     deleteWindows
 } -result {wm .t.t pack .t wm .t.t}
+test wm-manage-1.9 {managed frame is not mapped before idle} -constraints {
+    notAqua
+} -setup {
+    set result [list]
+} -body {
+    toplevel .t
+    frame .t.f -width 100 -height 100
+    pack .t.f
+    update
+    bind .t.f <Map> {lappend result map}
+    wm manage .t.f
+    wm withdraw .t.f
+    update
+    lappend result [winfo ismapped .t.f]
+    wm deiconify .t.f
+    update
+    lappend result [winfo ismapped .t.f]
+} -cleanup {
+    deleteWindows
+} -result {0 map 1}
 
 test wm-forget-1.1 "bug #2009788: forget toplevel can cause crash" -body {
     toplevel .parent
@@ -2549,11 +2719,10 @@ test wm-forget-1.5 {check wm forget for unmapped parent (ref. #3205464,#2967911,
     #
     # Moved here from winWm.test, test winWm-9.2 (cf. ticket #83eed90f93).
     #
-} -constraints {
-    failsOnCILinux failsOnXQuartz
 } -setup {
     destroy .t
     toplevel .t
+    wm geometry .t +100+100
     frame .t.f -background blue -height 200 -width 200
     frame .t.f.x -background red -height 100 -width 100
     set result {}
@@ -2562,7 +2731,7 @@ test wm-forget-1.5 {check wm forget for unmapped parent (ref. #3205464,#2967911,
     pack .t.f
     lappend aid [after 5000 {set ::result timeout}] [after 500 {
 	wm manage .t.f
-	wm iconify .t
+	wm withdraw .t
 	lappend aid [after 500 {
 	    wm forget .t.f
 	    wm deiconify .t
@@ -2626,6 +2795,50 @@ test wm-forget-2.1 {bug [c77b426dc9] - panic with [menu]+[wm forget]} -constrain
     destroy .m
     unset res
 } -result {1 1}
+test wm-forget-2.2 {bug [3515522fff] - crash with menubar + [wm forget]} -setup {
+    catch {destroy .t .m}
+} -body {
+    menu .m
+    menu .m.system
+    .m.system add command -label test
+    .m add cascade -label System -menu .m.system
+    toplevel .t -menu .m
+    update
+    wm forget .t
+    update
+    wm manage .t
+    update
+    wm forget .t
+    update
+    destroy .t
+    update
+    destroy .m
+    update
+    winfo exists .m
+} -cleanup {
+    destroy .t .m
+} -result 0
+test wm-forget-2.3 {bug [3515522fff] - [wm forget] releases the menubar} -setup {
+    catch {destroy .t .m}
+} -body {
+    menu .m
+    .m add command -label x
+    toplevel .t -menu .m
+    update
+    wm forget .t
+    update
+    destroy .m
+    menu .m
+    .m add command -label y
+    update
+    set res [list [winfo children .t]]
+    wm manage .t
+    update
+    lappend res [llength [winfo children .t]]
+} -cleanup {
+    destroy .t .m
+    unset -nocomplain res
+} -result {{} 1}
 
 #
 # TESTFILE CLEANUP

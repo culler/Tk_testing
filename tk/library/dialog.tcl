@@ -65,9 +65,10 @@ proc ::tk_dialog {w title text bitmap default args} {
 	wm transient $w [winfo toplevel [winfo parent $w]]
     }
 
-    if {$windowingsystem eq "aqua"} {
-	::tk::unsupported::MacWindowStyle style $w moveableModal {}
-    } elseif {$windowingsystem eq "x11"} {
+#    if {$windowingsystem eq "aqua"} {
+#	after 100 {wm attributes $w -stylemask fullsizecontent}
+#    } else
+    if {$windowingsystem eq "x11"} {
 	wm attributes $w -type dialog
     }
 
@@ -140,10 +141,10 @@ proc ::tk_dialog {w title text bitmap default args} {
     bind $w <Destroy> {set ::tk::Priv(button) -1}
 
     # 6. Withdraw the window, then update all the geometry information
-    # so we know how big it wants to be, then center the window in the
-    # display (Motif style) and de-iconify it.
+    # so we know how big it wants to be, then center the window over its
+    # parent (or in the display if the parent is not mapped) and de-iconify it.
 
-    ::tk::PlaceWindow $w
+    ::tk::PlaceWindow $w widget [winfo parent $w]
     tkwait visibility $w
 
     # 7. Set a grab and claim the focus too.
@@ -160,6 +161,10 @@ proc ::tk_dialog {w title text bitmap default args} {
     # before deleting the window, since otherwise the window manager
     # may take the focus away so we can't redirect it.  Finally,
     # restore any grab that was in effect.
+
+    if {$windowingsystem eq "aqua"} {
+	wm attributes $w -stylemask titled
+    }
 
     vwait ::tk::Priv(button)
 

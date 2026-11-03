@@ -616,6 +616,102 @@ BlendComplexAlpha(
 /*
  *----------------------------------------------------------------------
  *
+ * TkPremultiplyRGBA --
+ *
+ *	Copy a w x h sub-rect of an RGBA image (4 bytes/pixel, not
+ *	premultiplied) into a buffer of the given byte stride, as
+ *	premultiplied BGRA: byte order B,G,R,A, with each color channel
+ *	multiplied by its alpha.  Used by the platform TkpPutRGBAImage
+ *	implementations.
+ *
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	Fills in dst.
+ *
+ *----------------------------------------------------------------------
+ */
+
+void
+TkPremultiplyRGBA(
+    XImage *image,		/* Source image; RGBA, not premultiplied. */
+    int src_x, int src_y,	/* Top-left of the sub-rect within image. */
+    int w, int h,		/* Size of the sub-rect. */
+    unsigned char *dst,		/* Destination buffer, premultiplied BGRA. */
+    int dstStride)		/* Bytes per destination row. */
+{
+    int x, y;
+
+    for (y = 0; y < h; y++) {
+	unsigned char *s = (unsigned char *) image->data
+		+ (size_t) (src_y + y) * image->bytes_per_line
+		+ (size_t) src_x * 4;
+	unsigned char *o = dst + (size_t) y * dstStride;
+
+	for (x = 0; x < w; x++) {
+	    unsigned int a = s[3];
+
+	    o[0] = (unsigned char) ((s[2] * a + 127) / 255);	/* B */
+	    o[1] = (unsigned char) ((s[1] * a + 127) / 255);	/* G */
+	    o[2] = (unsigned char) ((s[0] * a + 127) / 255);	/* R */
+	    o[3] = (unsigned char) a;				/* A */
+	    s += 4;
+	    o += 4;
+	}
+    }
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * DisplayInstancePixmap --
+ *
+ *	Draws a portion of the pixmap of a photo image instance, which has
+ *	the -gamma and -palette of the image applied, clipped to the valid
+ *	region of the image.
+ *
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	A portion of the image gets rendered in a pixmap or window.
+ *
+ *----------------------------------------------------------------------
+ */
+
+static void
+DisplayInstancePixmap(
+    PhotoInstance *instancePtr,	/* Instance to be displayed. */
+    Display *display,		/* Display on which to draw image. */
+    Drawable drawable,		/* Pixmap or window in which to draw image. */
+    int imageX, int imageY,	/* Upper-left corner of region within image to
+				 * draw. */
+    int width, int height,	/* Dimensions of region within image to
+				 * draw. */
+    int drawableX,int drawableY)/* Coordinates within drawable that correspond
+				 * to imageX and imageY. */
+{
+    /*
+     * modelPtr->validRegion describes which parts of the image contain valid
+     * data. We set this region as the clip mask for the gc, setting its
+     * origin appropriately, and use it when drawing the image.
+     */
+
+    XSetRegion(display, instancePtr->gc,
+	    instancePtr->modelPtr->validRegion);
+    XSetClipOrigin(display, instancePtr->gc, drawableX - imageX,
+	    drawableY - imageY);
+    XCopyArea(display, instancePtr->pixels, drawable, instancePtr->gc,
+	    imageX, imageY, (unsigned) width, (unsigned) height,
+	    drawableX, drawableY);
+    XSetClipMask(display, instancePtr->gc, None);
+    XSetClipOrigin(display, instancePtr->gc, 0, 0);
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
  * TkImgPhotoDisplay --
  *
  *	This function is invoked to draw a photo image.
@@ -659,6 +755,22 @@ TkImgPhotoDisplay(
 #ifdef TK_CAN_RENDER_RGBA
 
     /*
+     * The RGBA rendering below draws the pixels of the model, so it ignores
+     * -gamma and -palette, which are only applied to the pixmap of the
+     * instance. Draw images without partial transparency from that pixmap
+     * if they have a non-default gamma or palette.
+     */
+
+    if (!(instancePtr->modelPtr->flags & COMPLEX_ALPHA)
+	    && ((instancePtr->gamma != 1.0)
+	    || (instancePtr->palette != instancePtr->defaultPalette))) {
+	DisplayInstancePixmap(instancePtr, display, drawable, imageX, imageY,
+		width, height, drawableX, drawableY);
+	(void)XFlush(display);
+	return;
+    }
+
+    /*
      * We can use TkpPutRGBAImage to render RGBA Ximages directly so there is
      * no need to call XGetImage or to do the Porter-Duff compositing by hand.
      */
@@ -681,6 +793,40 @@ TkImgPhotoDisplay(
 	    && (visInfo.c_class == DirectColor || visInfo.c_class == TrueColor)) {
 	Tk_ErrorHandler handler;
 	XImage *bgImg = NULL;
+
+#ifdef HAVE_XRENDER
+	/*
+	 * Try the server-side XRender composite first (TkpPutRGBAImage); it
+	 * avoids the XGetImage read-back and the per-pixel CPU blend below.
+	 * Fall through to the software blend when the server lacks RENDER or
+	 * the drawable has no usable picture format.
+	 */
+
+	/*
+	 * Note: bitmap_pad must be 8, 16 or 32 -- Xlib's XCreateImage
+	 * returns NULL otherwise (the macOS TK_CAN_RENDER_RGBA branch
+	 * passes 0, but only its Xlib emulation accepts that).
+	 */
+
+	unsigned char *rgbaPixels = instancePtr->modelPtr->pix32;
+	XImage *photo = XCreateImage(display, NULL, 32, ZPixmap, 0,
+		(char *) rgbaPixels, (unsigned int) instancePtr->width,
+		(unsigned int) instancePtr->height, 32,
+		(unsigned int) (4 * instancePtr->width));
+
+	if (photo != NULL) {
+	    int result = TkpPutRGBAImage(display, drawable, instancePtr->gc,
+		    photo, imageX, imageY, drawableX, drawableY,
+		    (unsigned int) width, (unsigned int) height);
+
+	    photo->data = NULL;
+	    XDestroyImage(photo);
+	    if (result == Success) {
+		(void) XFlush(display);
+		return;
+	    }
+	}
+#endif /* HAVE_XRENDER */
 
 	/*
 	 * Create an error handler to suppress the case where the input was
@@ -716,22 +862,9 @@ TkImgPhotoDisplay(
 	XDestroyImage(bgImg);
 	Tk_DeleteErrorHandler(handler);
     } else {
-	/*
-	 * modelPtr->validRegion describes which parts of the image contain valid
-	 * data. We set this region as the clip mask for the gc, setting its
-	 * origin appropriately, and use it when drawing the image.
-	 */
-
     fallBack:
-	XSetRegion(display, instancePtr->gc,
-		instancePtr->modelPtr->validRegion);
-	XSetClipOrigin(display, instancePtr->gc, drawableX - imageX,
-		drawableY - imageY);
-	XCopyArea(display, instancePtr->pixels, drawable, instancePtr->gc,
-		imageX, imageY, (unsigned) width, (unsigned) height,
-		drawableX, drawableY);
-	XSetClipMask(display, instancePtr->gc, None);
-	XSetClipOrigin(display, instancePtr->gc, 0, 0);
+	DisplayInstancePixmap(instancePtr, display, drawable, imageX, imageY,
+		width, height, drawableX, drawableY);
     }
     (void)XFlush(display);
 #endif
@@ -1100,17 +1233,8 @@ GetColorTable(
 
 	colorPtr = (ColorTable *)Tcl_Alloc(sizeof(ColorTable));
 
-	/*
-	 * The following line of code should not normally be needed due to the
-	 * assignment in the following line. However, it compensates for bugs
-	 * in some compilers (HP, for example) where sizeof(ColorTable) is 24
-	 * but the assignment only copies 20 bytes, leaving 4 bytes
-	 * uninitialized; these cause problems when using the id for lookups
-	 * in imgPhotoColorHash, and can result in core dumps.
-	 */
-
-	memset(&colorPtr->id, 0, sizeof(ColorTableId));
-	colorPtr->id = id;
+	/* Make sure padding bytes are copied as well */
+	memcpy(&colorPtr->id, &id, sizeof(ColorTableId));
 	Tk_PreserveColormap(colorPtr->id.display, colorPtr->id.colormap);
 	colorPtr->flags = 0;
 	colorPtr->refCount = 0;

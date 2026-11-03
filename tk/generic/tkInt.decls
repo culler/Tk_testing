@@ -392,6 +392,9 @@ declare 119 {
     int XUnionRectWithRegion(XRectangle *rect,
 	    Region src, Region dr_return)
 }
+declare 120 {
+    int TkpWindowIsDark(Tk_Window tkwin, bool *isdark)
+}
 declare 121 {
     Pixmap TkpCreateNativeBitmap(Display *display, const void *source)
 }
@@ -605,6 +608,14 @@ declare 187 {
 	    Tcl_Obj *formatString, int *widthPtr, int *heightPtr)
 }
 
+# Emoji classification shared by the font engines (UTS #51)
+declare 188 {
+    int TkFontEmojiPresentation(int ch, int next)
+}
+declare 189 {
+    int TkFontEmojiContinuation(int ch, int inEmoji)
+}
+
 
 ##############################################################################
 
@@ -670,9 +681,10 @@ declare 1 win {
 declare 2 win {
     void TkGenerateActivateEvents(TkWindow *winPtr, int active)
 }
-declare 3 win {
-    unsigned long TkpGetMS(void)
-}
+# removed in Tk 9.1
+#declare 3 win {
+#   unsigned long TkpGetMS(void)
+#}
 declare 4 win {
     void TkPointerDeadWindow(TkWindow *winPtr)
 }
@@ -838,9 +850,10 @@ declare 1 aqua {
 declare 2 aqua {
     void TkGenerateActivateEvents(TkWindow *winPtr, int active)
 }
-declare 3 aqua {
-    unsigned long TkpGetMS(void)
-}
+# removed in Tk 9.1
+#declare 3 aqua {
+#   unsigned long TkpGetMS(void)
+#}
 declare 4 aqua {
     void TkPointerDeadWindow(TkWindow *winPtr)
 }
@@ -1000,10 +1013,10 @@ declare 9 {
 declare 10 {
     XHostAddress *XListHosts(Display *d, int *i, Bool *b)
 }
-# second parameter was of type KeyCode
-declare 11 {
-    KeySym XKeycodeToKeysym(Display *d, unsigned int k, int i)
-}
+# Removed in 9.1, because it is deprecated in X11
+#declare 11 {
+#    KeySym XKeycodeToKeysym(Display *d, unsigned int k, int i)
+#}
 declare 12 {
     KeySym XStringToKeysym(const char *c)
 }
