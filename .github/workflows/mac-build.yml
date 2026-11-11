@@ -28,10 +28,6 @@ jobs:
           path: tcl
       - name: Prepare checked out repositories
         run: |
-          pwd
-          ls
-          ls tk
-          ls tk/generic
           touch tk/generic/tkStubInit.c
           mkdir build
           echo "BUILD_DIR=`cd build && pwd`" >> $GITHUB_ENV
@@ -74,8 +70,6 @@ jobs:
     steps:
       - name: Checkout Tk
         uses: actions/checkout@v7
-        with:
-          path: tk
       - name: Check out Tcl 9.1
         uses: actions/checkout@v7
         with:
