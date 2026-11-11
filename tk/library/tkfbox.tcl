@@ -122,7 +122,8 @@ proc ::tk::dialog::file:: {type args} {
     #
     if {![winfo exists $w]} {
 	Create $w TkFDialog
-    } elseif {[winfo class $w] ne "TkFDialog"} {
+    } elseif {[winfo class $w] ne "TkFDialog"
+	    || [info commands $w.contents.icons] eq ""} {
 	destroy $w
 	Create $w TkFDialog
     } else {
@@ -865,6 +866,7 @@ proc ::tk::dialog::file::ActivateEnt {w} {
 
     set text [$data(ent) get]
     if {$data(-multiple)} {
+	set data(selectFile) {}
 	foreach t $text {
 	    VerifyFileName $w $t
 	}

@@ -5,7 +5,7 @@
 
 AC_INIT([tk],[9.1])
 AC_CONFIG_SRCDIR([../generic/tk.h])
-AC_PREREQ([2.72])
+AC_PREREQ([2.73])
 
 # The following define is needed when building with Cygwin since newer
 # versions of autoconf incorrectly set SHELL to /bin/bash instead of
@@ -15,19 +15,19 @@ SHELL=/bin/sh
 TK_VERSION=9.1
 TK_MAJOR_VERSION=9
 TK_MINOR_VERSION=1
-TK_PATCH_LEVEL="a2"
+TK_PATCH_LEVEL=".1"
 VER=$TK_MAJOR_VERSION$TK_MINOR_VERSION
 
 #------------------------------------------------------------------------
 # Handle the --prefix=... option
 #------------------------------------------------------------------------
 
-if test "${prefix}" = "NONE"; then
+AS_IF([test "${prefix}" = "NONE"], [
     prefix=/usr/local
-fi
-if test "${exec_prefix}" = "NONE"; then
+])
+AS_IF([test "${exec_prefix}" = "NONE"], [
     exec_prefix=$prefix
-fi
+])
 # libdir must be a fully qualified path (not ${exec_prefix}/lib)
 eval libdir="$libdir"
 
@@ -37,9 +37,9 @@ eval libdir="$libdir"
 
 # If the user did not set CFLAGS, set it now to keep
 # the AC_PROG_CC macro from adding "-g -O2".
-if test "${CFLAGS+set}" != "set" ; then
+AS_IF([test "${CFLAGS+set}" != "set" ], [
     CFLAGS=""
-fi
+])
 
 AC_PROG_CC
 AC_C_INLINE
@@ -76,11 +76,26 @@ SC_ENABLE_SHARED
 SC_PATH_TCLCONFIG($TK_PATCH_LEVEL)
 SC_LOAD_TCLCONFIG
 
-if test "${TCL_MAJOR_VERSION}" -lt 9 ; then
+AS_IF([test "${TCL_MAJOR_VERSION}" -lt 9 ], [
     AC_MSG_ERROR([${TCL_BIN_DIR}/tclConfig.sh is for Tcl ${TCL_VERSION}.
 Tk ${TK_VERSION}${TK_PATCH_LEVEL} needs Tcl 9.0+.
 Use --with-tcl= option to indicate location of tclConfig.sh file for Tcl 9.0 or better.])
-fi
+])
+
+#------------------------------------------------------------------------
+# Compile against the Tcl source tree if it is accessible, otherwise use
+# the installed Tcl headers.
+#------------------------------------------------------------------------
+
+AS_IF([test -r "${TCL_SRC_DIR}/generic/tcl.h"], [
+    TCL_INCLUDES='-I"${TCL_GENERIC_NATIVE}" -I"${TCL_PLATFORM_NATIVE}"'
+    TCL_RC_INCLUDE_DIR='${TCL_GENERIC_NATIVE}'
+], [
+    TCL_INCLUDES="${TCL_INCLUDE_SPEC}"
+    TCL_RC_INCLUDE_DIR=`echo "${TCL_INCLUDE_SPEC}" | sed 's/^-I//'`
+])
+AC_SUBST(TCL_INCLUDES)
+AC_SUBST(TCL_RC_INCLUDE_DIR)
 
 #--------------------------------------------------------------------
 # The statements below define a collection of compile flags.  This
@@ -108,40 +123,42 @@ AC_SUBST(MAN2TCLFLAGS)
 AC_CACHE_CHECK([availability of _strtoi64], tcl_cv_strtoi64, [
     AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <stdlib.h>]],
     [[_strtoi64(0,0,0)]])],[tcl_cv_strtoi64=yes],[tcl_cv_strtoi64=no])])
-if test $tcl_cv_strtoi64 = no; then
+AS_IF([test $tcl_cv_strtoi64 = no], [
     AC_DEFINE(NO_STRTOI64, 1, [Is _strtoi64 function available?])
-fi
+])
 
 AC_CHECK_TYPE([intptr_t], [
     AC_DEFINE([HAVE_INTPTR_T], 1, [Do we have the intptr_t type?])], [
     AC_CACHE_CHECK([for pointer-size signed integer type], tcl_cv_intptr_t, [
     for tcl_cv_intptr_t in "int" "long" "__int64" none; do
-	if test "$tcl_cv_intptr_t" != none; then
+	AS_IF([test "$tcl_cv_intptr_t" != none], [
 	    AC_COMPILE_IFELSE([AC_LANG_BOOL_COMPILE_TRY([AC_INCLUDES_DEFAULT],
 		    [[sizeof (void *) <= sizeof ($tcl_cv_intptr_t)]])],
 		[tcl_ok=yes], [tcl_ok=no])
-	    test "$tcl_ok" = yes && break; fi
+	    AS_IF([test "$tcl_ok" = yes], [break])
+	])
     done])
-    if test "$tcl_cv_intptr_t" != none; then
+    AS_IF([test "$tcl_cv_intptr_t" != none], [
 	AC_DEFINE_UNQUOTED([intptr_t], [$tcl_cv_intptr_t], [Signed integer
 	   type wide enough to hold a pointer.])
-    fi
+    ])
 ])
 AC_CHECK_TYPE([uintptr_t], [
     AC_DEFINE([HAVE_UINTPTR_T], 1, [Do we have the uintptr_t type?])], [
     AC_CACHE_CHECK([for pointer-size unsigned integer type], tcl_cv_uintptr_t, [
     for tcl_cv_uintptr_t in "unsigned int" "unsigned long" "unsigned __int64" \
 	    none; do
-	if test "$tcl_cv_uintptr_t" != none; then
+	AS_IF([test "$tcl_cv_uintptr_t" != none], [
 	    AC_COMPILE_IFELSE([AC_LANG_BOOL_COMPILE_TRY([AC_INCLUDES_DEFAULT],
 		    [[sizeof (void *) <= sizeof ($tcl_cv_uintptr_t)]])],
 		[tcl_ok=yes], [tcl_ok=no])
-	    test "$tcl_ok" = yes && break; fi
+	    AS_IF([test "$tcl_ok" = yes], [break])
+	])
     done])
-    if test "$tcl_cv_uintptr_t" != none; then
+    AS_IF([test "$tcl_cv_uintptr_t" != none], [
 	AC_DEFINE_UNQUOTED([uintptr_t], [$tcl_cv_uintptr_t], [Unsigned integer
 	   type wide enough to hold a pointer.])
-    fi
+    ])
 ])
 
 #--------------------------------------------------------------------
@@ -151,12 +168,6 @@ AC_CHECK_TYPE([uintptr_t], [
 #--------------------------------------------------------------------
 
 SC_ENABLE_SYMBOLS
-
-#--------------------------------------------------------------------
-# Embed the manifest if we can determine how
-#--------------------------------------------------------------------
-
-SC_EMBED_MANIFEST(wish.exe.manifest)
 
 SC_BUILD_TCLSH
 SC_PROG_TCLSH
@@ -168,7 +179,7 @@ AC_ARG_ENABLE(zipfs,
     AS_HELP_STRING([--enable-zipfs],
 	[build with Zipfs support (default: on)]),
     [tcl_ok=$enableval], [tcl_ok=yes])
-if test "$tcl_ok" = "yes" ; then
+AS_IF([test "$tcl_ok" = "yes" ], [
     #
     # Find a native compiler
     #
@@ -179,28 +190,28 @@ if test "$tcl_ok" = "yes" ; then
     SC_ZIPFS_SUPPORT
 	ZIPFS_BUILD=1
 	TK_ZIP_FILE=libtk${TK_MAJOR_VERSION}.${TK_MINOR_VERSION}${TK_PATCH_LEVEL}.zip
-else
+], [
 	ZIPFS_BUILD=0
 	TCL_ZIP_FILE=
-fi
+])
 # Do checking message here to not mess up interleaved configure output
 AC_MSG_CHECKING([for building with zipfs])
-if test "${ZIPFS_BUILD}" = 1; then
-    if test "${SHARED_BUILD}" = 0; then
+AS_IF([test "${ZIPFS_BUILD}" = 1], [
+    AS_IF([test "${SHARED_BUILD}" = 0], [
        ZIPFS_BUILD=2;
        AC_DEFINE(ZIPFS_BUILD, 2, [Are we building with zipfs enabled?])
        INSTALL_LIBRARIES=install-libraries-zipfs-static
        AC_MSG_RESULT([yes])
-     else
+    ], [
        AC_DEFINE(ZIPFS_BUILD, 1, [Are we building with zipfs enabled?])\
        INSTALL_LIBRARIES=install-libraries-zipfs-shared
        AC_MSG_RESULT([yes])
-    fi
-else
+    ])
+], [
 AC_MSG_RESULT([no])
 INSTALL_LIBRARIES=install-libraries
 INSTALL_MSGS=install-msgs
-fi
+])
 AC_SUBST(ZIPFS_BUILD)
 AC_SUBST(TK_ZIP_FILE)
 AC_SUBST(INSTALL_LIBRARIES)
@@ -223,11 +234,11 @@ TK_UNSHARED_LIB_SUFFIX="\${NODOT_VERSION}${LIBSUFFIX}"
 eval "TK_SRC_DIR=\"`cd $srcdir/..; $CYGPATH $(pwd)`\""
 
 eval "TK_DLL_FILE=tcl9tk$VER${DLLSUFFIX}"
-if test ${SHARED_BUILD} = 0 -o "$GCC" != "yes" ; then
+AS_IF([test ${SHARED_BUILD} = 0 -o "$GCC" != "yes" ], [
  eval "TK_LIB_FILE=${LIBPREFIX}tcl9tk${VER}${LIBSUFFIX}"
-else
+], [
  eval "TK_LIB_FILE=${LIBPREFIX}tcl9tk${VER}${DLLSUFFIX}.a"
-fi
+])
 
 eval "TK_STUB_LIB_FILE=${LIBPREFIX}tkstub${LIBSUFFIX}" ;
 # FIXME: All of this var junk needs to be done in tcl.m4 !!!!
@@ -258,13 +269,13 @@ CFG_TK_UNSHARED_LIB_SUFFIX=${TK_UNSHARED_LIB_SUFFIX}
 # on symbols and static vs. shared.
 #--------------------------------------------------------------------
 
-if test ${SHARED_BUILD} = 0; then
+AS_IF([test ${SHARED_BUILD} = 0], [
     RC_DEFINES="${RC_DEFINE} STATIC_BUILD"
     TK_RES=""
-else
+], [
     RC_DEFINES=""
     TK_RES='tk.$(RES)'
-fi
+])
 
 # The wish.exe.manifest requires these
 # TK_WIN_VERSION is the 4 dotted pair Windows version format which needs

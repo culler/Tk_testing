@@ -683,8 +683,10 @@ ComputeLineBbox(
     }
 
     coordPtr = linePtr->coordPtr;
-    linePtr->header.x1 = linePtr->header.x2 = (int) coordPtr[0];
-    linePtr->header.y1 = linePtr->header.y2 = (int) coordPtr[1];
+    linePtr->header.x1 = linePtr->header.x2 =
+	    (int) TkCanvClampCoord(coordPtr[0]);
+    linePtr->header.y1 = linePtr->header.y2 =
+	    (int) TkCanvClampCoord(coordPtr[1]);
 
     /*
      * Compute the bounding box of all the points in the line, then expand in
@@ -2132,9 +2134,15 @@ PrintArrowShape(
 {
     LineItem *linePtr = (LineItem *) recordPtr;
     char *buffer = (char *)Tcl_Alloc(120);
+    char arrowShapeA[TCL_DOUBLE_SPACE];
+    char arrowShapeB[TCL_DOUBLE_SPACE];
+    char arrowShapeC[TCL_DOUBLE_SPACE];
 
-    snprintf(buffer, 120, "%.5g %.5g %.5g", linePtr->arrowShapeA,
-	    linePtr->arrowShapeB, linePtr->arrowShapeC);
+    TkFormatDouble(arrowShapeA, sizeof(arrowShapeA), "%.5g", linePtr->arrowShapeA);
+    TkFormatDouble(arrowShapeB, sizeof(arrowShapeB), "%.5g", linePtr->arrowShapeB);
+    TkFormatDouble(arrowShapeC, sizeof(arrowShapeC), "%.5g", linePtr->arrowShapeC);
+
+    snprintf(buffer, 120, "%s %s %s", arrowShapeA, arrowShapeB, arrowShapeC);
     *freeProcPtr = TCL_DYNAMIC;
     return buffer;
 }

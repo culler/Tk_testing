@@ -16,6 +16,10 @@
 #define XkbOpenDisplay XkbOpenDisplay_ /* Move out of the way, conflicting definitions */
 #include <X11/XKBlib.h>
 #undef XkbOpenDisplay
+#include <time.h>
+#if defined(HAVE_XFT) || defined(HAVE_BIDI)
+#   include <X11/extensions/Xrender.h>
+#endif
 
 /*
  * The following static indicates whether this module has been initialized in
@@ -163,10 +167,35 @@ TkpOpenDisplay(
     if (display == NULL) {
 	return NULL;
     }
+#if defined(HAVE_XFT) || defined(HAVE_BIDI)
+    {
+	/*
+	 * Initialize the RENDER extension before Xft does. Close-display
+	 * hooks run in reverse order of registration, so this makes the
+	 * Xft hook, which still uses RENDER to free cached glyphs, run
+	 * before the RENDER one. Otherwise RENDER re-registers the dying
+	 * display, and a new display allocated at the same address later
+	 * inherits stale extension codes. [Bug b298b92ba7]
+	 */
+
+	int eventBase, errorBase;
+
+	XRenderQueryExtension(display, &eventBase, &errorBase);
+    }
+#endif
+
+    /*
+     * Do not generate KeyRelease events for auto-repeated keys, as on
+     * other platforms. [Bug d3b9644729]
+     */
+
+    XkbSetDetectableAutoRepeat(display, True, NULL);
+
     dispPtr = (TkDisplay *)Tcl_Alloc(sizeof(TkDisplay));
     memset(dispPtr, 0, sizeof(TkDisplay));
     dispPtr->display = display;
 #ifdef TK_USE_INPUT_METHODS
+    Tcl_InitHashTable(&dispPtr->inputXfsTable, TCL_ONE_WORD_KEYS);
     XSetLocaleModifiers("");
     OpenIM(dispPtr);
     XRegisterIMInstantiateCallback(dispPtr->display, NULL, NULL, NULL,
@@ -227,6 +256,20 @@ TkpCloseDisplay(
     TkWmCleanup(dispPtr);
 
 #ifdef TK_USE_INPUT_METHODS
+    {
+	Tcl_HashSearch search;
+	Tcl_HashEntry *hPtr;
+
+	for (hPtr = Tcl_FirstHashEntry(&dispPtr->inputXfsTable, &search);
+		hPtr != NULL; hPtr = Tcl_NextHashEntry(&search)) {
+	    XFontSet xfs = (XFontSet) Tcl_GetHashValue(hPtr);
+
+	    if (xfs != dispPtr->inputXfs) {
+		XFreeFontSet(dispPtr->display, xfs);
+	    }
+	}
+	Tcl_DeleteHashTable(&dispPtr->inputXfsTable);
+    }
     if (dispPtr->inputXfs) {
 	XFreeFontSet(dispPtr->display, dispPtr->inputXfs);
     }
@@ -783,7 +826,8 @@ OpenIM(
     /*
      * Create an XFontSet for preedit area.
      */
-    if (dispPtr->inputStyle & XIMPreeditPosition) {
+    if ((dispPtr->inputStyle & XIMPreeditPosition)
+	    && (dispPtr->inputXfs == NULL)) {
 	char **missing_list;
 	int missing_count;
 	char *def_string;
@@ -821,6 +865,32 @@ TkpWarpPointer(
     }
     XWarpPointer(dispPtr->display, None, w, 0, 0, 0, 0,
 	    (int) dispPtr->warpX, (int) dispPtr->warpY);
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * TkpGetEventTime --
+ *
+ * Returns current time.
+ *
+ * Results:
+ *	Number of milliseconds.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+unsigned long
+TkpGetEventTime(void)
+{
+    struct timespec ts;
+
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (unsigned long)(ts.tv_sec * 1000UL + ts.tv_nsec / 1000000UL);
 }
 
 /*

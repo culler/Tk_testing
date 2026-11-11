@@ -49,7 +49,13 @@ proc ::tk_dialog {w title text bitmap default args} {
     # and bottom parts.
 
     destroy $w
-    toplevel $w -class Dialog
+    if {$windowingsystem eq "aqua"} {
+	toplevel $w -class Dialog
+	wm attributes $w -hidden 1 
+	wm attributes $w -stylemask {titled fullsizecontent}
+    } else {
+	toplevel $w -class Dialog
+    }
     wm title $w $title
     wm iconname $w Dialog
     wm protocol $w WM_DELETE_WINDOW { }
@@ -65,9 +71,7 @@ proc ::tk_dialog {w title text bitmap default args} {
 	wm transient $w [winfo toplevel [winfo parent $w]]
     }
 
-    if {$windowingsystem eq "aqua"} {
-	::tk::unsupported::MacWindowStyle style $w moveableModal {}
-    } elseif {$windowingsystem eq "x11"} {
+    if {$windowingsystem eq "x11"} {
 	wm attributes $w -type dialog
     }
 
@@ -78,6 +82,9 @@ proc ::tk_dialog {w title text bitmap default args} {
 	$w.top configure -relief raised -bd 1
     }
     pack $w.bot -side bottom -fill both
+    if {$windowingsystem eq "aqua"} {
+	pack configure $w.top -pady {30 10}
+    }
     pack $w.top -side top -fill both -expand 1
     grid anchor $w.bot center
 
@@ -140,12 +147,15 @@ proc ::tk_dialog {w title text bitmap default args} {
     bind $w <Destroy> {set ::tk::Priv(button) -1}
 
     # 6. Withdraw the window, then update all the geometry information
-    # so we know how big it wants to be, then center the window in the
-    # display (Motif style) and de-iconify it.
+    # so we know how big it wants to be, then center the window over its
+    # parent (or in the display if the parent is not mapped) and de-iconify it.
 
-    ::tk::PlaceWindow $w
-    tkwait visibility $w
-
+    ::tk::PlaceWindow $w widget [winfo parent $w]
+    if {$windowingsystem eq "aqua"} {
+        wm attributes $w -hidden 0
+    } else {
+        tkwait visibility $w
+    }
     # 7. Set a grab and claim the focus too.
 
     if {$default >= 0} {
@@ -160,6 +170,10 @@ proc ::tk_dialog {w title text bitmap default args} {
     # before deleting the window, since otherwise the window manager
     # may take the focus away so we can't redirect it.  Finally,
     # restore any grab that was in effect.
+
+#    if {$windowingsystem eq "aqua"} {
+#	wm attributes $w -stylemask titled
+#    }
 
     vwait ::tk::Priv(button)
 

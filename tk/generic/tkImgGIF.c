@@ -553,7 +553,7 @@ FileReadGIF(
      * Search for the frame from the GIF to display.
      */
 
-    while (1) {
+    while (true) {
 	if (-1 == (gifLabel = ReadOneByte( interp, gifConfPtr, chan ) ) ) {
 	    goto error;
 	}
@@ -845,7 +845,7 @@ FileReadGIF(
      * which suits as well). We're done.
      */
 
-    while (1) {
+    while (true) {
 	if (-1 == (gifLabel = ReadOneByte( interp, gifConfPtr, chan ) ) ) {
 	    goto error;
 	}
@@ -868,7 +868,7 @@ FileReadGIF(
 		Tcl_SetObjResult(interp, Tcl_NewStringObj(
 			"error reading extension in GIF image", TCL_INDEX_NONE));
 		Tcl_SetErrorCode(interp, "TK", "IMAGE", "GIF", "BAD_EXT",
-			NULL);
+			(char *)NULL);
 		goto error;
 	    }
 	    continue;
@@ -2003,7 +2003,7 @@ CommonWriteGIF(
     Tcl_Interp *interp,
     void *handle,
     WriteBytesFunc *writeProc,
-    TCL_UNUSED(Tcl_Obj *),
+    Tcl_Obj *format,
     Tcl_Obj *metadataInObj,
     Tk_PhotoImageBlock *blockPtr)
 {
@@ -2012,6 +2012,25 @@ CommonWriteGIF(
     long width, height, x;
     unsigned char c;
     unsigned int top, left;
+    Tcl_Size objc = 0;
+    Tcl_Obj **objv;
+
+    /*
+     * No format options are supported when writing.
+     */
+
+    if (format && Tcl_ListObjGetElements(interp, format,
+	    &objc, &objv) != TCL_OK) {
+	return TCL_ERROR;
+    }
+    if (objc > 1) {
+	Tcl_SetObjResult(interp, Tcl_ObjPrintf(
+		"bad format option \"%s\": no options allowed",
+		Tcl_GetString(objv[1])));
+	Tcl_SetErrorCode(interp, "TK", "IMAGE", "GIF", "BAD_OPTION",
+		(char *)NULL);
+	return TCL_ERROR;
+    }
 
     top = 0;
     left = 0;
@@ -2139,15 +2158,17 @@ CommonWriteGIF(
      * Check for metadata keys to add to file
      */
     if (NULL != metadataInObj) {
-	Tcl_Obj *itemData;
+	Tcl_Obj *itemData, *keyObj;
+	int result;
 
 	/*
 	 * Check and code comment block
 	 */
 
-	if (TCL_ERROR == Tcl_DictObjGet(interp, metadataInObj,
-		Tcl_NewStringObj("comment",-1),
-		&itemData)) {
+	keyObj = Tcl_NewStringObj("comment",-1);
+	result = Tcl_DictObjGet(interp, metadataInObj, keyObj, &itemData);
+	Tcl_BounceRefCount(keyObj);
+	if (result != TCL_OK) {
 	    return TCL_ERROR;
 	}
 	if (itemData != NULL) {

@@ -5,7 +5,7 @@
  *    Accessibility API for Tk on Windows and supports UI Automation
  *    through the MSAA-UIA bridge provided by Windows.
  *
- * Copyright (c) 2024-2025 Kevin Walzer
+ * Copyright © 2024-2025 Kevin Walzer
  *
  * See the file "license.terms" for information on usage and redistribution of
  * this file, and for a DISCLAIMER OF ALL WARRANTIES.
@@ -929,7 +929,7 @@ TkAccRole(
     if (!win || !pvarRole) return E_INVALIDARG;
     TkGlobalLock();
 
-    Tcl_HashEntry *hPtr = Tcl_FindHashEntry(TkAccessibilityObject, (ClientData)win);
+    Tcl_HashEntry *hPtr = Tcl_FindHashEntry(TkAccessibilityObject, win);
     if (!hPtr) {
 	TkGlobalUnlock();
 	return S_FALSE;
@@ -997,7 +997,9 @@ ComputeAndCacheCheckedState(
     }
 
     int isChecked = 0;
+    const char *varName = NULL;
     const char *path = Tk_PathName(win);
+    Tcl_Obj *varCmd;
 
     /* Special-case: ttk::toggleswitch — ALWAYS use instate selected. */
     if (strcmp(tkrole, "Toggleswitch") == 0) {
@@ -1021,17 +1023,12 @@ ComputeAndCacheCheckedState(
      * Note: ttk widgets sometimes auto-create variables — but toggleswitch was handled above.
      */
 
-    Tcl_Obj *varCmd = Tcl_ObjPrintf("%s cget -variable", path);
+    varCmd = Tcl_ObjPrintf("%s cget -variable", path);
     if (!varCmd) return;
     Tcl_IncrRefCount(varCmd);
 
-    const char *varName = NULL;
-    int haveVarName = 0;
     if (Tcl_EvalObjEx(interp, varCmd, TCL_EVAL_GLOBAL) == TCL_OK) {
 	varName = Tcl_GetStringResult(interp);
-	if (varName && *varName) {
-	    haveVarName = 1;
-	}
     } else {
 	/* evaluation failed; clean up and return */
 	Tcl_DecrRefCount(varCmd);
@@ -1039,7 +1036,7 @@ ComputeAndCacheCheckedState(
     }
     Tcl_DecrRefCount(varCmd);
 
-    if (haveVarName) {
+    if (varName && *varName) {
 	/* Grab the variable value (global). */
 	const char *varVal = Tcl_GetVar(interp, varName, TCL_GLOBAL_ONLY);
 	if (varVal) {
@@ -1509,7 +1506,7 @@ static int GetChildIdForTkWindow(
 	TkGlobalUnlock();
 	return -1;
     }
-    int id = PTR2INT(Tcl_GetHashValue(entry));
+    int id = (int)PTR2INT(Tcl_GetHashValue(entry));
     TkGlobalUnlock();
     return id;
 }
@@ -2009,7 +2006,7 @@ static int EmitFocusChanged(
     AssignChildIdsRecursive(toplevel, &nextId, interp, toplevel);
     LONG childId = GetChildIdForTkWindow(win, childIdTable);
     if (childId <= 0) {
-	Tcl_AppendResult(interp, "Failed to find child ID for ", path, NULL);
+	Tcl_AppendResult(interp, "Failed to find child ID for ", path, (char *)NULL);
 	TkGlobalUnlock();
 	return TCL_OK;
     }

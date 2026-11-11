@@ -225,6 +225,7 @@ static int		FileWritePNG(Tcl_Interp *interp, const char *filename,
 static int		InitPNGImage(Tcl_Interp *interp, PNGImage *pngPtr,
 			    Tcl_Channel chan, Tcl_Obj *objPtr, int dir);
 static inline unsigned char Paeth(int a, int b, int c);
+static int		CheckWriteFormat(Tcl_Interp *interp, Tcl_Obj *fmtObj);
 static int		ParseFormat(Tcl_Interp *interp, Tcl_Obj *fmtObj,
 			    PNGImage *pngPtr);
 static int		ReadBase64(Tcl_Interp *interp, PNGImage *pngPtr,
@@ -1023,7 +1024,7 @@ ReadChunkHeader(
 			    " \"%s\"", typeString));
 		}
 		Tcl_SetErrorCode(interp, "TK", "IMAGE", "PNG",
-			"UNSUPPORTED_CRITICAL", NULL);
+			"UNSUPPORTED_CRITICAL", (char *)NULL);
 		return TCL_ERROR;
 	    }
 
@@ -1037,7 +1038,7 @@ ReadChunkHeader(
 		    Tcl_SetObjResult(interp, Tcl_NewStringObj(
 			    "invalid chunk type", TCL_INDEX_NONE));
 		    Tcl_SetErrorCode(interp, "TK", "IMAGE", "PNG",
-			    "INVALID_CHUNK", NULL);
+			    "INVALID_CHUNK", (char *)NULL);
 		    return TCL_ERROR;
 		}
 	    }
@@ -2219,7 +2220,7 @@ ReadIDAT(
 		Tcl_SetObjResult(interp, Tcl_NewStringObj(
 			"extra data after end of zlib stream", TCL_INDEX_NONE));
 		Tcl_SetErrorCode(interp, "TK", "IMAGE", "PNG", "EXTRA_DATA",
-			NULL);
+			(char *)NULL);
 		return TCL_ERROR;
 	    }
 
@@ -2262,7 +2263,7 @@ ReadIDAT(
 			"extra data after final scan line of final phase",
 			-1));
 		Tcl_SetErrorCode(interp, "TK", "IMAGE", "PNG", "EXTRA_DATA",
-			NULL);
+			(char *)NULL);
 		return TCL_ERROR;
 	    }
 
@@ -2446,13 +2447,53 @@ ParseFormat(
 		Tcl_SetObjResult(interp, Tcl_NewStringObj(
 			"-alpha value must be between 0.0 and 1.0", TCL_INDEX_NONE));
 		Tcl_SetErrorCode(interp, "TK", "IMAGE", "PNG", "BAD_ALPHA",
-			NULL);
+			(char *)NULL);
 		return TCL_ERROR;
 	    }
 	    break;
 	}
     }
 
+    return TCL_OK;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * CheckWriteFormat --
+ *
+ *	This function checks the -format string that can be specified when
+ *	writing PNG data. No options are supported.
+ *
+ * Results:
+ *	TCL_OK, or TCL_ERROR if the format specification is invalid.
+ *
+ * Side effects:
+ *	None
+ *
+ *----------------------------------------------------------------------
+ */
+
+static int
+CheckWriteFormat(
+    Tcl_Interp *interp,
+    Tcl_Obj *fmtObj)
+{
+    Tcl_Obj **objv;
+    Tcl_Size objc = 0;
+
+    if (fmtObj &&
+	    Tcl_ListObjGetElements(interp, fmtObj, &objc, &objv) != TCL_OK) {
+	return TCL_ERROR;
+    }
+    if (objc > 1) {
+	Tcl_SetObjResult(interp, Tcl_ObjPrintf(
+		"bad format option \"%s\": no options allowed",
+		Tcl_GetString(objv[1])));
+	Tcl_SetErrorCode(interp, "TK", "IMAGE", "PNG", "BAD_OPTION",
+		(char *)NULL);
+	return TCL_ERROR;
+    }
     return TCL_OK;
 }
 
@@ -3526,33 +3567,49 @@ WriteExtraChunks(
 
     if (metadataInObj != NULL) {
 
-	Tcl_Obj *aspectObj, *DPIObj;
-	double aspectValue=-1, DPIValue=-1;
-	unsigned long PPUx = 65536, PPUy = 65536;
+	Tcl_Obj *valueObj, *keyObj;
+	double aspectValue, DPIValue;
+	unsigned long PPUx, PPUy;
 	char unitSpecifier;
+	int result;
 
-	if (TCL_ERROR == Tcl_DictObjGet(interp, metadataInObj,
-		Tcl_NewStringObj("aspect",-1),
-		&aspectObj) ||
-	    TCL_ERROR == Tcl_DictObjGet(interp, metadataInObj,
-		Tcl_NewStringObj("DPI",-1),
-		&DPIObj) ) {
+	/*
+	 * Handle DPI value
+	 */
+
+	keyObj = Tcl_NewStringObj("DPI",-1);
+	result= Tcl_DictObjGet(interp, metadataInObj, keyObj, &valueObj);
+	Tcl_BounceRefCount(keyObj);
+	if (result != TCL_OK) {
 	    return TCL_ERROR;
 	}
-	if (DPIObj != NULL) {
-	    if (TCL_ERROR == Tcl_GetDoubleFromObj(interp, DPIObj, &DPIValue))
-	    {
+	if (valueObj == NULL) {
+	    unitSpecifier = 0;
+	    DPIValue = -1;
+	    PPUx = 65536;
+	} else {
+	    if (TCL_OK != Tcl_GetDoubleFromObj(interp, valueObj, &DPIValue)) {
 		return TCL_ERROR;
 	    }
 	    PPUx = (unsigned long)floor(DPIValue / 0.0254+0.5);
-	    if (aspectObj == NULL) {
-		PPUy = PPUx;
-	    }
 	    unitSpecifier = 1;
 	}
-	if (aspectObj != NULL) {
-	    if (TCL_ERROR == Tcl_GetDoubleFromObj(interp, aspectObj,
-		    &aspectValue)) {
+
+	/*
+	 * Handle aspect
+	 */
+
+	keyObj = Tcl_NewStringObj("aspect",-1);
+	result = Tcl_DictObjGet(interp, metadataInObj, keyObj, &valueObj);
+	Tcl_BounceRefCount(keyObj);
+	if (result != TCL_OK) {
+	    return TCL_ERROR;
+	}
+	if (valueObj == NULL) {
+	    aspectValue = -1;
+	    PPUy = PPUx;
+	} else {
+	    if (TCL_OK != Tcl_GetDoubleFromObj(interp, valueObj, &aspectValue)) {
 		return TCL_ERROR;
 	    }
 
@@ -3560,7 +3617,7 @@ WriteExtraChunks(
 	     * aspect = PPUy / PPUx
 	     */
 
-	    if (DPIObj == NULL) {
+	    if (DPIValue == -1) {
 		unitSpecifier = 0;
 		PPUx = 65536;
 		PPUy = (unsigned long)floor(65536.0 * aspectValue+0.5);
@@ -3568,7 +3625,7 @@ WriteExtraChunks(
 		PPUy = (unsigned long)floor(DPIValue * aspectValue / 0.0254+0.5);
 	    }
 	}
-	if (DPIObj != NULL || aspectObj != NULL) {
+	if (DPIValue != -1 || aspectValue != -1) {
 	    unsigned char buffer[9];
 
 	    if ( PPUx > 2147483647 || PPUy > 2147483647 ) {
@@ -3737,13 +3794,17 @@ static int
 FileWritePNG(
     Tcl_Interp *interp,
     const char *filename,
-    TCL_UNUSED(Tcl_Obj *),
+    Tcl_Obj *fmtObj,
     Tcl_Obj *metadataInObj,
     Tk_PhotoImageBlock *blockPtr)
 {
     Tcl_Channel chan;
     PNGImage png;
     int result = TCL_ERROR;
+
+    if (CheckWriteFormat(interp, fmtObj) == TCL_ERROR) {
+	return TCL_ERROR;
+    }
 
     /*
      * Open a Tcl file channel where the image data will be stored. Tk ought
@@ -3803,13 +3864,17 @@ FileWritePNG(
 static int
 StringWritePNG(
     Tcl_Interp *interp,
-    TCL_UNUSED(Tcl_Obj *),
+    Tcl_Obj *fmtObj,
     Tcl_Obj *metadataInObj,
     Tk_PhotoImageBlock *blockPtr)
 {
     Tcl_Obj *resultObj = Tcl_NewObj();
     PNGImage png;
     int result = TCL_ERROR;
+
+    if (CheckWriteFormat(interp, fmtObj) == TCL_ERROR) {
+	return TCL_ERROR;
+    }
 
     /*
      * Initalize PNGImage instance for encoding.

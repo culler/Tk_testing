@@ -2986,7 +2986,7 @@ ExpandPercents(
 	string = numStorage;						\
     }
 
-    while (1) {
+    while (true) {
 	char numStorage[TCL_INTEGER_SPACE];
 	const char *string;
 	long long number;     /* signed */
@@ -3024,7 +3024,7 @@ ExpandPercents(
 	    break;
 	case 'b':
 	    if (flags & BUTTON) {
-		SET_UNUMBER(evPtr->xbutton.button);
+		SET_UNUMBER((evPtr->xbutton.button > 7) ? evPtr->xbutton.button - 4 : evPtr->xbutton.button);
 	    }
 	    break;
 	case 'c':
@@ -3973,7 +3973,13 @@ HandleEventGenerate(
 	event.general.xkey.y_root = -1;
     }
 
-    if (event.general.xany.type == FocusIn || event.general.xany.type == FocusOut) {
+    /*
+     * Generated focus events do not change the focus, unless generated for
+     * a wrapper window (only accessible in tests) to simulate the X server.
+     */
+
+    if ((event.general.xany.type == FocusIn || event.general.xany.type == FocusOut)
+	    && !(((TkWindow *) tkwin)->flags & TK_WRAPPER)) {
 	event.general.xany.send_event = GENERATED_FOCUS_EVENT_MAGIC;
     }
 
@@ -3989,9 +3995,9 @@ HandleEventGenerate(
 	Tcl_Obj *optionPtr, *valuePtr;
 #if defined(_MSC_VER)
 	/* Work around MSVC compiler optimization bug, see [d93c8175fd]. */
-	volatile int badOpt = 0;
+	volatile bool badOpt = false;
 #else
-	int badOpt = 0;
+	bool badOpt = false;
 #endif
 	int index;
 
@@ -4022,7 +4028,7 @@ HandleEventGenerate(
 		return TCL_ERROR;
 	    }
 	    if (!(flags & CAN_WARP)) {
-		badOpt = 1;
+		badOpt = true;
 	    }
 	    break;
 	case EVENT_WHEN:
@@ -4039,7 +4045,7 @@ HandleEventGenerate(
 	    if (flags & CONFIG) {
 		event.general.xconfigure.above = Tk_WindowId(tkwin2);
 	    } else {
-		badOpt = 1;
+		badOpt = true;
 	    }
 	    break;
 	case EVENT_BORDER:
@@ -4049,7 +4055,7 @@ HandleEventGenerate(
 	    if (flags & (CREATE|CONFIG)) {
 		event.general.xcreatewindow.border_width = number;
 	    } else {
-		badOpt = 1;
+		badOpt = true;
 	    }
 	    break;
 	case EVENT_BUTTON:
@@ -4062,7 +4068,7 @@ HandleEventGenerate(
 		}
 		event.general.xbutton.button = number;
 	    } else {
-		badOpt = 1;
+		badOpt = true;
 	    }
 	    break;
 	case EVENT_COUNT:
@@ -4072,7 +4078,7 @@ HandleEventGenerate(
 	    if (flags & EXPOSE) {
 		event.general.xexpose.count = number;
 	    } else {
-		badOpt = 1;
+		badOpt = true;
 	    }
 	    break;
 	case EVENT_DATA:
@@ -4084,7 +4090,7 @@ HandleEventGenerate(
 		 */
 		userDataObj = valuePtr;
 	    } else {
-		badOpt = 1;
+		badOpt = true;
 	    }
 	    break;
 	case EVENT_DELTA:
@@ -4094,7 +4100,7 @@ HandleEventGenerate(
 	    if (flags & WHEEL) {
 		event.general.xbutton.button = (unsigned)number; /* mis-use button field for this */
 	    } else {
-		badOpt = 1;
+		badOpt = true;
 	    }
 	    break;
 	case EVENT_DETAIL:
@@ -4107,7 +4113,7 @@ HandleEventGenerate(
 	    } else if (flags & CROSSING) {
 		event.general.xcrossing.detail = number;
 	    } else {
-		badOpt = 1;
+		badOpt = true;
 	    }
 	    break;
 	case EVENT_FOCUS:
@@ -4117,7 +4123,7 @@ HandleEventGenerate(
 	    if (flags & CROSSING) {
 		event.general.xcrossing.focus = number;
 	    } else {
-		badOpt = 1;
+		badOpt = true;
 	    }
 	    break;
 	case EVENT_HEIGHT:
@@ -4129,7 +4135,7 @@ HandleEventGenerate(
 	    } else if (flags & CONFIG) {
 		event.general.xconfigure.height = number;
 	    } else {
-		badOpt = 1;
+		badOpt = true;
 	    }
 	    break;
 	case EVENT_KEYCODE:
@@ -4139,7 +4145,7 @@ HandleEventGenerate(
 	    if (flags & KEY) {
 		event.general.xkey.keycode = number;
 	    } else {
-		badOpt = 1;
+		badOpt = true;
 	    }
 	    break;
 	case EVENT_KEYSYM: {
@@ -4161,7 +4167,7 @@ HandleEventGenerate(
 		return TCL_ERROR;
 	    }
 	    if (!(flags & KEY)) {
-		badOpt = 1;
+		badOpt = true;
 	    }
 	    break;
 	}
@@ -4174,7 +4180,7 @@ HandleEventGenerate(
 	    } else if (flags & FOCUS) {
 		event.general.xfocus.mode = number;
 	    } else {
-		badOpt = 1;
+		badOpt = true;
 	    }
 	    break;
 	case EVENT_OVERRIDE:
@@ -4190,7 +4196,7 @@ HandleEventGenerate(
 	    } else if (flags & CONFIG) {
 		event.general.xconfigure.override_redirect = number;
 	    } else {
-		badOpt = 1;
+		badOpt = true;
 	    }
 	    break;
 	case EVENT_PLACE:
@@ -4200,7 +4206,7 @@ HandleEventGenerate(
 	    if (flags & CIRC) {
 		event.general.xcirculate.place = number;
 	    } else {
-		badOpt = 1;
+		badOpt = true;
 	    }
 	    break;
 	case EVENT_ROOT:
@@ -4210,7 +4216,7 @@ HandleEventGenerate(
 	    if (flags & HAS_XKEY_HEAD) {
 		event.general.xkey.root = Tk_WindowId(tkwin2);
 	    } else {
-		badOpt = 1;
+		badOpt = true;
 	    }
 	    break;
 	case EVENT_ROOTX:
@@ -4220,7 +4226,7 @@ HandleEventGenerate(
 	    if (flags & HAS_XKEY_HEAD) {
 		event.general.xkey.x_root = number;
 	    } else {
-		badOpt = 1;
+		badOpt = true;
 	    }
 	    break;
 	case EVENT_ROOTY:
@@ -4230,7 +4236,7 @@ HandleEventGenerate(
 	    if (flags & HAS_XKEY_HEAD) {
 		event.general.xkey.y_root = number;
 	    } else {
-		badOpt = 1;
+		badOpt = true;
 	    }
 	    break;
 	case EVENT_SEND: {
@@ -4281,7 +4287,7 @@ HandleEventGenerate(
 		}
 		event.general.xvisibility.state = number;
 	    } else {
-		badOpt = 1;
+		badOpt = true;
 	    }
 	    break;
 	case EVENT_SUBWINDOW:
@@ -4291,7 +4297,7 @@ HandleEventGenerate(
 	    if (flags & HAS_XKEY_HEAD) {
 		event.general.xkey.subwindow = Tk_WindowId(tkwin2);
 	    } else {
-		badOpt = 1;
+		badOpt = true;
 	    }
 	    break;
 	case EVENT_TIME: {
@@ -4307,7 +4313,7 @@ HandleEventGenerate(
 	    } else if (flags & PROP) {
 		event.general.xproperty.time = number;
 	    } else {
-		badOpt = 1;
+		badOpt = true;
 	    }
 	    break;
 	}
@@ -4320,7 +4326,7 @@ HandleEventGenerate(
 	    } else if (flags & (CREATE|CONFIG)) {
 		event.general.xcreatewindow.width = number;
 	    } else {
-		badOpt = 1;
+		badOpt = true;
 	    }
 	    break;
 	case EVENT_WINDOW:
@@ -4330,7 +4336,7 @@ HandleEventGenerate(
 	    if (flags & (CREATE|UNMAP|MAP|REPARENT|CONFIG|GRAVITY|CIRC)) {
 		event.general.xcreatewindow.window = Tk_WindowId(tkwin2);
 	    } else {
-		badOpt = 1;
+		badOpt = true;
 	    }
 	    break;
 	case EVENT_X:
@@ -4357,7 +4363,7 @@ HandleEventGenerate(
 	    } else if (flags & REPARENT) {
 		event.general.xreparent.x = number;
 	    } else {
-		badOpt = 1;
+		badOpt = true;
 	    }
 	    break;
 	case EVENT_Y:
@@ -4384,7 +4390,7 @@ HandleEventGenerate(
 	    } else if (flags & REPARENT) {
 		event.general.xreparent.y = number;
 	    } else {
-		badOpt = 1;
+		badOpt = true;
 	    }
 	    break;
 	}
@@ -4665,7 +4671,7 @@ FindSequence(
     unsigned patsBufSize = 1;
     unsigned numPats;
     unsigned totalCount = 0;
-    int virtualFound = 0;
+    bool virtualFound = false;
     const char *p = eventString;
     TkPattern *patPtr;
     PatSeq *psPtr;
@@ -4710,7 +4716,7 @@ FindSequence(
 		Tcl_Free(psPtr);
 		return NULL;
 	    }
-	    virtualFound = 1;
+	    virtualFound = true;
 	}
 
 	if (count > 1u) {
@@ -4946,7 +4952,7 @@ ParseEventDescription(
 	    char field[512];
 	    Tcl_HashEntry *hPtr;
 
-	    while (1) {
+	    while (true) {
 		ModInfo *modPtr;
 
 		p = GetField(p, field, sizeof(field));

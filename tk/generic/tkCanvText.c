@@ -671,7 +671,9 @@ DeleteText(
     if (textPtr->textObj != NULL) {
 	Tcl_DecrRefCount(textPtr->textObj);
     }
-
+    if (textPtr->widthObj != NULL) {
+	Tcl_DecrRefCount(textPtr->widthObj);
+    }
     Tk_FreeTextLayout(textPtr->textLayout);
     if (textPtr->gc != NULL) {
 	Tk_FreeGC(display, textPtr->gc);
@@ -826,25 +828,25 @@ ComputeTextBbox(
 	    tmp = x[i];
 	}
     }
-    textPtr->header.x1 = ROUND(tmp);
+    textPtr->header.x1 = ROUND(TkCanvClampCoord(tmp));
     for (i=1,tmp=y[0] ; i<4 ; i++) {
 	if (y[i] < tmp) {
 	    tmp = y[i];
 	}
     }
-    textPtr->header.y1 = ROUND(tmp);
+    textPtr->header.y1 = ROUND(TkCanvClampCoord(tmp));
     for (i=1,tmp=x[0] ; i<4 ; i++) {
 	if (x[i] > tmp) {
 	    tmp = x[i];
 	}
     }
-    textPtr->header.x2 = ROUND(tmp);
+    textPtr->header.x2 = ROUND(TkCanvClampCoord(tmp));
     for (i=1,tmp=y[0] ; i<4 ; i++) {
 	if (y[i] > tmp) {
 	    tmp = y[i];
 	}
     }
-    textPtr->header.y2 = ROUND(tmp);
+    textPtr->header.y2 = ROUND(TkCanvClampCoord(tmp));
 }
 
 /*
