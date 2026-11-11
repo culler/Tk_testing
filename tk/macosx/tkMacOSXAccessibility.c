@@ -362,6 +362,12 @@ void PostAccessibilityAnnouncement(NSString *message)
 	return value;
     }
 
+    /* Return label for buttons. */
+    if (role && CFStringCompare(role, kAXButtonRole, 0) == kCFCompareEqualTo) {
+	NSString *value = self.accessibilityLabel;
+	return value;
+    }
+
     Tk_Window win = self.tk_win;
     if (!win) {
 	return @"";
@@ -583,7 +589,7 @@ void PostAccessibilityAnnouncement(NSString *message)
 - (void) accessibilityPerformAction: (NSAccessibilityActionName)action
 {
     if (CFStringCompare((CFStringRef)action, kAXPressAction, 0) == kCFCompareEqualTo) {
-	BOOL success = [self accessibilityPerformPress];
+	bool success = [self accessibilityPerformPress];
 
 	if (success) {
 	    /* Post notification AFTER the action completes. */

@@ -49,7 +49,7 @@ typedef struct RegisteredInterp {
  * be reassigned to the path in the user's Library/Caches directory.
  */
 
-static char *appNameRegistryPath = "/tmp/TkAppnames";
+static char *appNameRegistryPath = (char *)"/tmp/TkAppnames";
 
 /*
  * Information that we record about an application.
@@ -538,7 +538,7 @@ RegOpen(
 
     Tcl_Size dictSize;
     Tcl_DictObjSize(NULL, regPtr->appNameDict, &dictSize);
-    Tcl_Obj **deadinterps = (Tcl_Obj**) Tcl_Alloc(dictSize * sizeof(Tcl_Obj*));
+    Tcl_Obj **deadinterps = (Tcl_Obj**)Tcl_Alloc(dictSize * sizeof(Tcl_Obj*));
     int count = 0;
     Tcl_DictSearch search;
     Tcl_Obj *key, *value;
@@ -707,7 +707,7 @@ RegAddName(
  *	will normally be the same as name, but if name was already in use for
  *	an application then a name of the form "name #2" will be chosen, with
  *	a high enough number to make the name unique.
- *      
+ *
  *      A crucial exception to the behavior described above arises when Tk is
  *      being run on a Continuous Integration runner.  The file-based App
  *      registry which is used to ensure uniqueness cannot be used on CI
@@ -1000,7 +1000,7 @@ Tk_SendObjCmd(
 	Tcl_SetObjResult(interp, Tcl_ObjPrintf(
 		"no application named \"%s\"", destName));
 	Tcl_SetErrorCode(interp, "TK", "LOOKUP", "APPLICATION", destName,
-		NULL);
+		(char *)NULL);
 	return TCL_ERROR;
     }
 
@@ -1091,7 +1091,7 @@ void
 TkSendCleanup(
     TCL_UNUSED(TkDisplay *)) /* dispPtr */
 {
-	Tcl_Free((char *)appNameRegistryPath);
+	Tcl_Free(appNameRegistryPath);
 }
 
 
@@ -1230,7 +1230,7 @@ TkpTestsendCmd(
 	    if (property != NULL) {
 		XFree(property);
 	    }
-	} else if (Tcl_GetString(objv[4])[0] == 0) {
+	} else if (TkObjIsEmpty(objv[4])) {
 	    handler = Tk_CreateErrorHandler(winPtr->dispPtr->display,
 		    -1, -1, -1, NULL, NULL);
 	    DeleteProperty(winPtr->dispPtr->display, w, propName);
